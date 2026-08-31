@@ -146,20 +146,20 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
   }, [cycleData, advanceItems]);
 
   return (
-    <div id="cycle-advance-calendar-section" className="bg-gradient-to-br from-stone-900 via-amber-950/80 to-stone-900 text-white rounded-2xl p-4 sm:p-5 border border-amber-500/20 shadow-md transition-all space-y-3">
+    <div id="cycle-advance-calendar-section" className="bg-amber-50 text-slate-900 rounded-2xl p-4 sm:p-5 border border-amber-200 shadow-sm transition-all space-y-3">
       {/* Header của Lịch Tạm Ứng (Bấm vào toàn bộ ô để Mở/Ẩn lịch) */}
       <div 
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="flex items-center justify-between gap-2 pb-2 border-b border-white/15 cursor-pointer select-none group"
+        className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200 cursor-pointer select-none group"
       >
         <div className="flex items-center gap-2 flex-1">
-          <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center font-bold group-hover:bg-white/30 transition shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold group-hover:bg-amber-200 transition shrink-0">
             <DollarSign className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5 flex-wrap">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
               <span>Lịch Tạm Ứng Tiền Lương</span>
-              <span className="text-[10px] font-bold text-white bg-white/20 px-2 py-0.2 rounded-full border border-white/25">
+              <span className="text-[10px] font-bold text-amber-900 bg-amber-100/90 px-2 py-0.2 rounded-full border border-amber-200/90">
                 {advanceItems.length} lần ứng • -{formatVND(totalAdvanceAmount)}
               </span>
             </h3>
@@ -175,13 +175,13 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
                 e.stopPropagation();
                 handleClearAll();
               }}
-              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white transition cursor-pointer border border-white/25"
+              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition cursor-pointer border border-rose-200"
             >
               Xóa tất cả ứng
             </button>
           )}
 
-          <div className="p-1.5 rounded-lg bg-white/20 group-hover:bg-white/30 text-white transition">
+          <div className="p-1.5 rounded-lg bg-amber-100/80 group-hover:bg-amber-200 text-amber-900 transition">
             {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </div>
         </div>
@@ -191,18 +191,18 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
       {isCollapsed && (
         <div className="pt-0.5 flex flex-col gap-1.5 animate-in fade-in duration-200">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-amber-200/90 font-semibold text-[11px]">
+            <span className="text-slate-700 font-semibold text-[11px]">
               Chi tiết {advanceItems.length} lần tạm ứng:
             </span>
             {advanceItems.length > 0 && (
-              <span className="text-[10px] text-amber-300 font-extrabold">
+              <span className="text-[10px] text-amber-700 font-extrabold">
                 Tổng ứng: -{formatVND(totalAdvanceAmount)}
               </span>
             )}
           </div>
 
           {sortedAdvanceItems.length === 0 ? (
-            <div className="text-stone-400 text-xs italic py-0.5">
+            <div className="text-slate-400 text-xs italic py-0.5">
               Chưa có khoản tạm ứng lương nào trong chu kỳ này
             </div>
           ) : (
@@ -214,12 +214,12 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
                 return (
                   <span
                     key={item.id}
-                    className="inline-flex items-center gap-1.5 bg-amber-500/20 text-amber-200 border border-amber-400/30 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs"
+                    className="inline-flex items-center gap-1.5 bg-amber-100/90 text-amber-950 border border-amber-300/80 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs"
                   >
                     <span>{dayLabel}:</span>
-                    <span className="text-amber-300 font-extrabold">{formatVND(item.amount)}</span>
+                    <span className="text-amber-800 font-extrabold">{formatVND(item.amount)}</span>
                     {item.note && (
-                      <span className="text-[10px] text-stone-300/80 font-normal max-w-[120px] truncate">
+                      <span className="text-[10px] text-slate-600 font-normal max-w-[120px] truncate">
                         ({item.note})
                       </span>
                     )}
@@ -236,27 +236,27 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
         <div className="space-y-3 pt-0.5">
           
           {/* Hướng Dẫn Nhanh */}
-          <div className="p-2.5 rounded-xl bg-white/15 border border-white/20 flex items-center justify-between text-xs text-white">
-            <div className="flex items-center gap-1.5 text-white text-[11px]">
-              <Sparkles className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-              <span>Bấm vào bất kỳ ngày nào để <strong>nhập số tiền ứng</strong>. Ô trắng là ngày đã tạm ứng.</span>
+          <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-xs text-slate-700 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-slate-700 text-[11px]">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Bấm vào bất kỳ ngày nào để <strong>nhập số tiền ứng</strong>. Ô vàng là ngày đã tạm ứng.</span>
             </div>
-            <span className="font-extrabold text-white shrink-0 ml-2 text-xs">
+            <span className="font-extrabold text-amber-900 shrink-0 ml-2 text-xs">
               Tổng: -{formatVND(totalAdvanceAmount)}
             </span>
           </div>
 
           {/* GIAI ĐOẠN 1: TỪ NGÀY 26 ĐẾN HẾT THÁNG ĐẦU */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-bold text-amber-100">
+            <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-white"></span>
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                 <span>Giai đoạn 1: Tháng {cycleInfo.startMonth} (26/{String(cycleInfo.startMonth).padStart(2, '0')} đến {cycleData.startMonthDaysCount}/{String(cycleInfo.startMonth).padStart(2, '0')})</span>
               </span>
-              <span className="text-[10px] text-amber-200 font-normal">{startMonthDays.length} ngày</span>
+              <span className="text-[10px] text-slate-500 font-normal">{startMonthDays.length} ngày</span>
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
               {startMonthDays.map((day) => {
                 const dayAdvances = advancesByDate.get(day.dateStr) || [];
                 const hasAdvance = dayAdvances.length > 0;
@@ -269,18 +269,18 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
                     onClick={() => handleOpenDayModal(day)}
                     className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all relative cursor-pointer flex flex-col justify-between min-h-[54px] sm:min-h-[58px] ${
                       hasAdvance
-                        ? 'border-2 border-white bg-white text-slate-950 shadow-md font-black'
+                        ? 'border-2 border-amber-500 bg-amber-500 text-slate-950 shadow-md font-black'
                         : day.isToday
-                        ? 'border-emerald-300 bg-emerald-400 text-slate-950 font-black'
-                        : 'border-white/20 bg-white/10 text-white hover:bg-white/20'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-950 font-bold'
+                        : 'border-slate-200/90 bg-white text-slate-800 hover:bg-amber-50'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full leading-none">
-                      <span className={`text-[9px] font-extrabold ${hasAdvance || day.isToday ? (day.dayOfWeek === 0 ? 'text-rose-600' : 'text-slate-500') : (day.dayOfWeek === 0 ? 'text-rose-300' : 'text-white/70')}`}>
+                      <span className={`text-[9px] font-extrabold ${hasAdvance ? 'text-slate-950' : day.isToday ? 'text-emerald-700' : day.dayOfWeek === 0 ? 'text-rose-600' : 'text-slate-500'}`}>
                         {day.dayOfWeekShort}
                       </span>
                       {hasAdvance ? (
-                        <span className="text-[8px] font-black text-white bg-amber-600 px-1 py-0.1 rounded">
+                        <span className="text-[8px] font-black text-amber-100 bg-amber-950 px-1 py-0.1 rounded">
                           Đã ứng
                         </span>
                       ) : day.isToday ? (
@@ -288,24 +288,24 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
                           Hôm nay
                         </span>
                       ) : (
-                        <span className="text-[8px] text-white/50 group-hover:text-white">
+                        <span className="text-[8px] text-slate-400 group-hover:text-amber-800">
                           + Ứng
                         </span>
                       )}
                     </div>
 
                     <div className="my-0.5 leading-tight">
-                      <div className={`text-sm sm:text-base font-black ${hasAdvance || day.isToday ? 'text-slate-950' : 'text-white'}`}>
+                      <div className={`text-sm sm:text-base font-black ${hasAdvance ? 'text-slate-950' : 'text-slate-900'}`}>
                         {day.dayNumber}
-                        <span className={`text-[9px] font-bold ml-0.5 ${hasAdvance || day.isToday ? 'text-slate-500' : 'text-white/60'}`}>/{day.month}</span>
+                        <span className={`text-[9px] font-bold ml-0.5 ${hasAdvance ? 'text-slate-800' : 'text-slate-400'}`}>/{day.month}</span>
                       </div>
                     </div>
 
                     <div className="text-[9px] font-bold truncate leading-none">
                       {hasAdvance ? (
-                        <span className="text-amber-700 font-extrabold">-{formatVND(totalDayAdvance)}</span>
+                        <span className="text-slate-950 font-black">-{formatVND(totalDayAdvance)}</span>
                       ) : (
-                        <span className="text-white/40 font-normal">Chưa ứng</span>
+                        <span className="text-slate-400 font-normal">Chưa ứng</span>
                       )}
                     </div>
                   </button>
@@ -315,13 +315,13 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
           </div>
 
           {/* GIAI ĐOẠN 2: TỪ NGÀY 01 ĐẾN NGÀY 25 THÁNG SAU */}
-          <div className="space-y-1.5 pt-1.5 border-t border-white/15">
-            <div className="flex items-center justify-between text-[11px] font-bold text-amber-100">
+          <div className="space-y-1.5 pt-1.5 border-t border-slate-200">
+            <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-white"></span>
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                 <span>Giai đoạn 2: Tháng {cycleInfo.endMonth} (01/{String(cycleInfo.endMonth).padStart(2, '0')} đến 25/{String(cycleInfo.endMonth).padStart(2, '0')})</span>
               </span>
-              <span className="text-[10px] text-amber-200 font-normal">{endMonthDays.length} ngày</span>
+              <span className="text-[10px] text-slate-500 font-normal">{endMonthDays.length} ngày</span>
             </div>
 
             <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
@@ -337,18 +337,18 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
                     onClick={() => handleOpenDayModal(day)}
                     className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all relative cursor-pointer flex flex-col justify-between min-h-[54px] sm:min-h-[58px] ${
                       hasAdvance
-                        ? 'border-2 border-white bg-white text-slate-950 shadow-md font-black'
+                        ? 'border-2 border-amber-500 bg-amber-500 text-slate-950 shadow-md font-black'
                         : day.isToday
-                        ? 'border-emerald-300 bg-emerald-400 text-slate-950 font-black'
-                        : 'border-white/20 bg-white/10 text-white hover:bg-white/20'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-950 font-bold'
+                        : 'border-slate-200/90 bg-white text-slate-800 hover:bg-amber-50'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full leading-none">
-                      <span className={`text-[9px] font-extrabold ${hasAdvance || day.isToday ? (day.dayOfWeek === 0 ? 'text-rose-600' : 'text-slate-500') : (day.dayOfWeek === 0 ? 'text-rose-300' : 'text-white/70')}`}>
+                      <span className={`text-[9px] font-extrabold ${hasAdvance ? 'text-slate-950' : day.isToday ? 'text-emerald-700' : day.dayOfWeek === 0 ? 'text-rose-600' : 'text-slate-500'}`}>
                         {day.dayOfWeekShort}
                       </span>
                       {hasAdvance ? (
-                        <span className="text-[8px] font-black text-white bg-amber-600 px-1 py-0.1 rounded">
+                        <span className="text-[8px] font-black text-amber-100 bg-amber-950 px-1 py-0.1 rounded">
                           Đã ứng
                         </span>
                       ) : day.isToday ? (
@@ -356,24 +356,24 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
                           Hôm nay
                         </span>
                       ) : (
-                        <span className="text-[8px] text-white/50 group-hover:text-white">
+                        <span className="text-[8px] text-slate-400 group-hover:text-amber-800">
                           + Ứng
                         </span>
                       )}
                     </div>
 
                     <div className="my-0.5 leading-tight">
-                      <div className={`text-sm sm:text-base font-black ${hasAdvance || day.isToday ? 'text-slate-950' : 'text-white'}`}>
+                      <div className={`text-sm sm:text-base font-black ${hasAdvance ? 'text-slate-950' : 'text-slate-900'}`}>
                         {day.dayNumber}
-                        <span className={`text-[9px] font-bold ml-0.5 ${hasAdvance || day.isToday ? 'text-slate-500' : 'text-white/60'}`}>/{day.month}</span>
+                        <span className={`text-[9px] font-bold ml-0.5 ${hasAdvance ? 'text-slate-800' : 'text-slate-400'}`}>/{day.month}</span>
                       </div>
                     </div>
 
                     <div className="text-[9px] font-bold truncate leading-none">
                       {hasAdvance ? (
-                        <span className="text-amber-700 font-extrabold">-{formatVND(totalDayAdvance)}</span>
+                        <span className="text-slate-950 font-black">-{formatVND(totalDayAdvance)}</span>
                       ) : (
-                        <span className="text-white/40 font-normal">Chưa ứng</span>
+                        <span className="text-slate-400 font-normal">Chưa ứng</span>
                       )}
                     </div>
                   </button>
@@ -454,12 +454,12 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
           </div>
 
           {/* TỔNG KẾT KHỐI TẠM ỨNG */}
-          <div className="p-3 rounded-xl bg-amber-500 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+          <div className="p-3 rounded-xl bg-amber-500 text-slate-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
             <div>
-              <span className="font-bold text-amber-100 block text-[10px] uppercase tracking-wider">
+              <span className="font-extrabold text-amber-950 block text-[10px] uppercase tracking-wider">
                 Tổng Tiền Tạm Ứng Trong Chu Kỳ:
               </span>
-              <p className="text-white text-[11px]">
+              <p className="text-slate-900 font-medium text-[11px]">
                 {advanceItems.length > 0
                   ? `Đã ghi nhận ${advanceItems.length} lần ứng lương. Khấu trừ vào quyết toán tháng.`
                   : 'Chưa có khoản tạm ứng nào được ghi nhận.'}
@@ -467,7 +467,7 @@ export const CycleAdvanceSalaryCalendar: React.FC<CycleAdvanceSalaryCalendarProp
             </div>
 
             <div className="text-right shrink-0">
-              <span className="text-base sm:text-lg font-black text-amber-950 bg-amber-100 px-3 py-1 rounded-lg inline-block">
+              <span className="text-base sm:text-lg font-black text-amber-950 bg-white px-3 py-1 rounded-lg inline-block border border-amber-300 shadow-2xs">
                 -{formatVND(totalAdvanceAmount)}
               </span>
             </div>

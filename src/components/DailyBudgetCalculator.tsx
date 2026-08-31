@@ -22,12 +22,14 @@ import {
   Sparkles,
   Wallet,
   Tag,
-  Gift
+  Gift,
+  ChevronDown
 } from 'lucide-react';
-import { FixedExpenseItem, SalaryAdvanceItem, BonusItem } from '../types';
-import { formatVND, getSalaryCycleInfo, generateCycleCalendarDays } from '../utils/formatters';
+import { FixedExpenseItem, SalaryAdvanceItem, BonusItem, LateArrivalItem } from '../types';
+import { formatVND, getSalaryCycleInfo, generateCycleCalendarDays, getPreviousCycleKey, getCycleUnpaidDebt } from '../utils/formatters';
 import { CycleDaysOffCalendar } from './CycleDaysOffCalendar';
 import { CycleAdvanceSalaryCalendar } from './CycleAdvanceSalaryCalendar';
+import { CycleLateArrivalTracker } from './CycleLateArrivalTracker';
 import { PDFExportButton } from './PDFExportButton';
 
 const DEFAULT_FIXED_EXPENSES: FixedExpenseItem[] = [];
@@ -60,13 +62,17 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
     return cycleInfo.totalDays;
   }, [cycleInfo]);
 
-  // Storage key helper
-  const getStorageKey = (key: string) => `calc_person_${personId}_${key}`;
+  // Storage key helpers
+  const cycleKeyStr = currentMonth || '2026-08';
+  const getCycleStorageKey = (key: string) => `calc_person_${personId}_${cycleKeyStr}_${key}`;
+  const getPersonBaseKey = (key: string) => `calc_person_${personId}_${key}`;
 
   // --- STATE ---
   const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
-    const saved = localStorage.getItem(getStorageKey('income')) || (personId === 'default_person' ? localStorage.getItem('calc_income') : null);
-    return saved ? parseInt(saved, 10) : 5000000;
+    const savedCycle = localStorage.getItem(getCycleStorageKey('income'));
+    if (savedCycle) return parseInt(savedCycle, 10);
+    const savedBase = localStorage.getItem(getPersonBaseKey('income')) || (personId === 'default_person' ? localStorage.getItem('calc_income') : null);
+    return savedBase ? parseInt(savedBase, 10) : 5000000;
   });
 
   const [daysInMonthChoice, setDaysInMonthChoice] = useState<number>(() => {
@@ -82,12 +88,23 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
 
   // Danh sách các khoản tạm ứng lương theo ngày (Lịch Tạm Ứng)
   const [advanceItems, setAdvanceItems] = useState<SalaryAdvanceItem[]>(() => {
-    const saved = localStorage.getItem(getStorageKey('advance_items')) || (personId === 'default_person' ? localStorage.getItem('calc_advance_items') : null);
-    if (saved) {
+    const savedCycle = localStorage.getItem(getCycleStorageKey('advance_items'));
+    if (savedCycle) {
       try {
-        return JSON.parse(saved);
+        return JSON.parse(savedCycle);
       } catch {
         return [];
+      }
+    }
+    // Backward compatibility cho tháng 2026-08 nếu chưa có key riêng
+    if (cycleKeyStr === '2026-08') {
+      const savedLegacy = localStorage.getItem(getPersonBaseKey('advance_items')) || (personId === 'default_person' ? localStorage.getItem('calc_advance_items') : null);
+      if (savedLegacy) {
+        try {
+          return JSON.parse(savedLegacy);
+        } catch {
+          return [];
+        }
       }
     }
     return [];
@@ -100,29 +117,85 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
 
   // Danh sách các ngày nghỉ đã đánh dấu trên Lịch (dateStr: YYYY-MM-DD)
   const [unpaidDates, setUnpaidDates] = useState<string[]>(() => {
-    const saved = localStorage.getItem(getStorageKey('unpaid_dates')) || (personId === 'default_person' ? localStorage.getItem('calc_unpaid_dates') : null);
-    if (saved) {
+    const savedCycle = localStorage.getItem(getCycleStorageKey('unpaid_dates'));
+    if (savedCycle) {
       try {
-        return JSON.parse(saved);
+        return JSON.parse(savedCycle);
       } catch {
         return [];
+      }
+    }
+    if (cycleKeyStr === '2026-08') {
+      const savedLegacy = localStorage.getItem(getPersonBaseKey('unpaid_dates')) || (personId === 'default_person' ? localStorage.getItem('calc_unpaid_dates') : null);
+      if (savedLegacy) {
+        try {
+          return JSON.parse(savedLegacy);
+        } catch {
+          return [];
+        }
       }
     }
     return [];
   });
 
   const [daysOff, setDaysOff] = useState<number>(() => {
-    const saved = localStorage.getItem(getStorageKey('days_off')) || (personId === 'default_person' ? localStorage.getItem('calc_days_off') : null);
-    return saved ? parseInt(saved, 10) : 4;
+    const savedCycle = localStorage.getItem(getCycleStorageKey('days_off'));
+    if (savedCycle) return parseInt(savedCycle, 10);
+    const savedBase = localStorage.getItem(getPersonBaseKey('days_off')) || (personId === 'default_person' ? localStorage.getItem('calc_days_off') : null);
+    return savedBase ? parseInt(savedBase, 10) : 4;
+  });
+
+  // Số giờ làm việc / ngày (Mặc định 12h, có thể chọn 6h hoặc 12h)
+  const [dailyWorkingHours, setDailyWorkingHours] = useState<number>(() => {
+    const savedCycle = localStorage.getItem(getCycleStorageKey('daily_working_hours'));
+    if (savedCycle) return parseInt(savedCycle, 10) || 12;
+    const savedBase = localStorage.getItem(getPersonBaseKey('daily_working_hours')) || (personId === 'default_person' ? localStorage.getItem('calc_daily_working_hours') : null);
+    return savedBase ? (parseInt(savedBase, 10) || 12) : 12;
+  });
+
+  const [showHoursMenu, setShowHoursMenu] = useState<boolean>(false);
+
+  // Thông tin chu kỳ tháng trước & Số nợ tồn chưa trả hết
+  const prevCycleKey = useMemo(() => getPreviousCycleKey(cycleKeyStr), [cycleKeyStr]);
+  const prevCycleInfo = useMemo(() => getSalaryCycleInfo(prevCycleKey), [prevCycleKey]);
+  const prevUnpaidDebt = useMemo(() => {
+    return getCycleUnpaidDebt(personId, prevCycleKey);
+  }, [personId, prevCycleKey, resetTrigger]);
+
+  const [isCustomOldDebt, setIsCustomOldDebt] = useState<boolean>(() => {
+    return localStorage.getItem(getCycleStorageKey('is_custom_old_debt')) === 'true';
+  });
+
+  // Khoản Nợ cũ (Kế thừa tự động từ chu kỳ trước hoặc tự nhập)
+  const [oldDebt, setOldDebt] = useState<number>(() => {
+    const isCustom = localStorage.getItem(getCycleStorageKey('is_custom_old_debt')) === 'true';
+    if (isCustom) {
+      const savedCycle = localStorage.getItem(getCycleStorageKey('old_debt'));
+      if (savedCycle !== null && savedCycle !== undefined) {
+        return parseInt(savedCycle, 10) || 0;
+      }
+    }
+    // Nếu chưa từng tự nhập nợ cũ riêng -> Tự động kế thừa nợ chưa trả hết từ chu kỳ trước
+    return getCycleUnpaidDebt(personId, getPreviousCycleKey(cycleKeyStr));
   });
 
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpenseItem[]>(() => {
-    const saved = localStorage.getItem(getStorageKey('fixed_expenses')) || (personId === 'default_person' ? localStorage.getItem('calc_fixed_expenses') : null);
-    if (saved) {
+    const savedCycle = localStorage.getItem(getCycleStorageKey('fixed_expenses'));
+    if (savedCycle) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(savedCycle);
         if (Array.isArray(parsed)) {
-          // Lọc bỏ dữ liệu mẫu cũ nếu có
+          return parsed.filter(item => !['f1', 'f2', 'f3'].includes(item.id));
+        }
+      } catch {
+        // fallback
+      }
+    }
+    const savedBase = localStorage.getItem(getPersonBaseKey('fixed_expenses')) || (personId === 'default_person' ? localStorage.getItem('calc_fixed_expenses') : null);
+    if (savedBase) {
+      try {
+        const parsed = JSON.parse(savedBase);
+        if (Array.isArray(parsed)) {
           return parsed.filter(item => !['f1', 'f2', 'f3'].includes(item.id));
         }
       } catch {
@@ -134,10 +207,10 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
 
   // Danh sách tiền thưởng & thu nhập thêm
   const [bonusItems, setBonusItems] = useState<BonusItem[]>(() => {
-    const saved = localStorage.getItem(getStorageKey('bonus_items')) || (personId === 'default_person' ? localStorage.getItem('calc_bonus_items') : null);
-    if (saved) {
+    const savedCycle = localStorage.getItem(getCycleStorageKey('bonus_items'));
+    if (savedCycle) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(savedCycle);
         if (Array.isArray(parsed)) return parsed;
       } catch {
         return [];
@@ -147,22 +220,46 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
   });
 
   const [weekendRatio, setWeekendRatio] = useState<number>(() => {
-    const saved = localStorage.getItem(getStorageKey('weekend_ratio')) || (personId === 'default_person' ? localStorage.getItem('calc_weekend_ratio') : null);
-    return saved ? parseFloat(saved) : 1.0;
+    const savedCycle = localStorage.getItem(getCycleStorageKey('weekend_ratio'));
+    if (savedCycle) return parseFloat(savedCycle);
+    const savedBase = localStorage.getItem(getPersonBaseKey('weekend_ratio')) || (personId === 'default_person' ? localStorage.getItem('calc_weekend_ratio') : null);
+    return savedBase ? parseFloat(savedBase) : 1.0;
   });
 
   // Ghi chép chi tiêu / Nhật ký tiêu xài
   const [dailyLogs, setDailyLogs] = useState<{ id: string; name: string; amount: number; time: string; date: string }[]>(() => {
-    const saved = localStorage.getItem(getStorageKey('daily_logs')) || (personId === 'default_person' ? localStorage.getItem('calc_daily_logs') : null);
-    if (saved) {
+    const savedCycle = localStorage.getItem(getCycleStorageKey('daily_logs'));
+    if (savedCycle) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(savedCycle);
         if (Array.isArray(parsed)) {
-          // Lọc bỏ dữ liệu mẫu cũ nếu có
           return parsed.filter(item => !['l1', 'l2', 'l3'].includes(item.id));
         }
       } catch {
         return [];
+      }
+    }
+    return [];
+  });
+
+  // Danh sách các lần đi làm trễ
+  const [lateItems, setLateItems] = useState<LateArrivalItem[]>(() => {
+    const savedCycle = localStorage.getItem(getCycleStorageKey('late_items'));
+    if (savedCycle) {
+      try {
+        return JSON.parse(savedCycle);
+      } catch {
+        return [];
+      }
+    }
+    if (cycleKeyStr === '2026-08') {
+      const savedLegacy = localStorage.getItem(getPersonBaseKey('late_items')) || (personId === 'default_person' ? localStorage.getItem('calc_late_items') : null);
+      if (savedLegacy) {
+        try {
+          return JSON.parse(savedLegacy);
+        } catch {
+          return [];
+        }
       }
     }
     return [];
@@ -178,6 +275,7 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
       setWeekendRatio(1.0);
       setAdvanceItems([]);
       setUnpaidDates([]);
+      setLateItems([]);
     }
   }, [resetTrigger]);
 
@@ -195,38 +293,68 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
   const [newBonusName, setNewBonusName] = useState('');
   const [newBonusAmountStr, setNewBonusAmountStr] = useState('');
 
-  // --- PERSISTENCE ---
+  // --- PERSISTENCE (Lưu thông tin riêng theo từng chu kỳ & đồng bộ cấu hình gốc) ---
   useEffect(() => {
-    localStorage.setItem(getStorageKey('income'), monthlyIncome.toString());
-  }, [monthlyIncome, personId]);
+    localStorage.setItem(getCycleStorageKey('income'), monthlyIncome.toString());
+    localStorage.setItem(getPersonBaseKey('income'), monthlyIncome.toString());
+  }, [monthlyIncome, personId, cycleKeyStr]);
 
   useEffect(() => {
-    localStorage.setItem(getStorageKey('advance_items'), JSON.stringify(advanceItems));
-  }, [advanceItems, personId]);
+    localStorage.setItem(getCycleStorageKey('advance_items'), JSON.stringify(advanceItems));
+  }, [advanceItems, personId, cycleKeyStr]);
 
   useEffect(() => {
-    localStorage.setItem(getStorageKey('unpaid_dates'), JSON.stringify(unpaidDates));
-  }, [unpaidDates, personId]);
+    localStorage.setItem(getCycleStorageKey('unpaid_dates'), JSON.stringify(unpaidDates));
+  }, [unpaidDates, personId, cycleKeyStr]);
 
   useEffect(() => {
-    localStorage.setItem(getStorageKey('days_off'), daysOff.toString());
-  }, [daysOff, personId]);
+    localStorage.setItem(getCycleStorageKey('days_off'), daysOff.toString());
+    localStorage.setItem(getPersonBaseKey('days_off'), daysOff.toString());
+  }, [daysOff, personId, cycleKeyStr]);
 
   useEffect(() => {
-    localStorage.setItem(getStorageKey('fixed_expenses'), JSON.stringify(fixedExpenses));
-  }, [fixedExpenses, personId]);
+    localStorage.setItem(getCycleStorageKey('fixed_expenses'), JSON.stringify(fixedExpenses));
+    localStorage.setItem(getPersonBaseKey('fixed_expenses'), JSON.stringify(fixedExpenses));
+  }, [fixedExpenses, personId, cycleKeyStr]);
 
   useEffect(() => {
-    localStorage.setItem(getStorageKey('bonus_items'), JSON.stringify(bonusItems));
-  }, [bonusItems, personId]);
+    localStorage.setItem(getCycleStorageKey('bonus_items'), JSON.stringify(bonusItems));
+  }, [bonusItems, personId, cycleKeyStr]);
 
   useEffect(() => {
-    localStorage.setItem(getStorageKey('weekend_ratio'), weekendRatio.toString());
-  }, [weekendRatio, personId]);
+    localStorage.setItem(getCycleStorageKey('weekend_ratio'), weekendRatio.toString());
+    localStorage.setItem(getPersonBaseKey('weekend_ratio'), weekendRatio.toString());
+  }, [weekendRatio, personId, cycleKeyStr]);
 
   useEffect(() => {
-    localStorage.setItem(getStorageKey('daily_logs'), JSON.stringify(dailyLogs));
-  }, [dailyLogs, personId]);
+    localStorage.setItem(getCycleStorageKey('daily_logs'), JSON.stringify(dailyLogs));
+  }, [dailyLogs, personId, cycleKeyStr]);
+
+  useEffect(() => {
+    localStorage.setItem(getCycleStorageKey('late_items'), JSON.stringify(lateItems));
+  }, [lateItems, personId, cycleKeyStr]);
+
+  useEffect(() => {
+    localStorage.setItem(getCycleStorageKey('daily_working_hours'), dailyWorkingHours.toString());
+    localStorage.setItem(getPersonBaseKey('daily_working_hours'), dailyWorkingHours.toString());
+    window.dispatchEvent(new CustomEvent('working_hours_changed', { detail: { personId, hours: dailyWorkingHours } }));
+  }, [dailyWorkingHours, personId, cycleKeyStr]);
+
+  useEffect(() => {
+    localStorage.setItem(getCycleStorageKey('old_debt'), oldDebt.toString());
+    localStorage.setItem(getPersonBaseKey('old_debt'), oldDebt.toString());
+    localStorage.setItem(getCycleStorageKey('is_custom_old_debt'), isCustomOldDebt ? 'true' : 'false');
+  }, [oldDebt, isCustomOldDebt, personId, cycleKeyStr]);
+
+  useEffect(() => {
+    const handleHoursChange = (e: any) => {
+      if (e.detail && e.detail.personId === personId && e.detail.hours) {
+        setDailyWorkingHours(e.detail.hours);
+      }
+    };
+    window.addEventListener('working_hours_changed', handleHoursChange);
+    return () => window.removeEventListener('working_hours_changed', handleHoursChange);
+  }, [personId]);
 
   // --- TÍNH TOÁN CỐT LÕI ---
 
@@ -296,21 +424,58 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
     return total;
   }, [monthlyIncome, unpaidDates, cycleDaysData, startMonthRate, endMonthRate]);
 
+  // 6b. Tính số tiền bị khấu trừ do đi làm trễ
+  const lateDeduction = useMemo(() => {
+    if (monthlyIncome <= 0 || lateItems.length === 0) return 0;
+    const dayMap = new Map<string, any>();
+    cycleDaysData.days.forEach(d => dayMap.set(d.dateStr, d));
+
+    const hours = dailyWorkingHours || 12;
+    const startMonthHourlyRate = Math.round(startMonthRate / hours);
+    const endMonthHourlyRate = Math.round(endMonthRate / hours);
+
+    return lateItems.reduce((sum, item) => {
+      const day = dayMap.get(item.date);
+      const isStartMonth = day ? day.phase === 'start_month' : true;
+      const hourlyRate = isStartMonth ? startMonthHourlyRate : endMonthHourlyRate;
+      return sum + Math.round(item.hours * hourlyRate);
+    }, 0);
+  }, [monthlyIncome, lateItems, cycleDaysData, startMonthRate, endMonthRate, dailyWorkingHours]);
+
   // 7. Tổng toàn bộ tiền tiêu xài đã chi từ nhật ký
   const totalSpentAllLogs = useMemo(() => {
     return dailyLogs.reduce((sum, item) => sum + item.amount, 0);
   }, [dailyLogs]);
 
-  // 8. SỐ TIỀN CÒN LẠI CUỐI CÙNG (DƯ HOẶC THIẾU)
-  // Công thức: (Thu nhập lương + Thưởng) - Khấu trừ ngày nghỉ - Tiền ứng - Tiền tiêu xài - Tiền thẻ/cố định
+  // 8. SỐ TIỀN CÒN LẠI THỰC TẾ TRƯỚC NỢ (Số dư khả dụng của tháng)
+  // Công thức: (Thu nhập lương + Thưởng) - Khấu trừ ngày nghỉ - Trừ trễ - Tiền ứng
   const finalRemainingBalance = useMemo(() => {
-    return totalEffectiveIncome - daysOffDeduction - totalAdvanceSalary - totalSpentAllLogs - totalFixedExpenses;
-  }, [totalEffectiveIncome, daysOffDeduction, totalAdvanceSalary, totalSpentAllLogs, totalFixedExpenses]);
+    return totalEffectiveIncome - daysOffDeduction - lateDeduction - totalAdvanceSalary;
+  }, [totalEffectiveIncome, daysOffDeduction, lateDeduction, totalAdvanceSalary]);
 
-  // Tổng các khoản đã khấu trừ & tiêu xài
+  // 8a. NỢ MỚI (PHÁT SINH): Tự động tính theo số dư khả dụng của tháng mới.
+  // Nếu tiền dư khả dụng tháng mới bị âm (< 0) -> Nợ mới = Math.abs(finalRemainingBalance)
+  // Nếu tiền dư khả dụng tháng mới còn dư (>= 0) -> Nợ mới = 0
+  const newDebt = useMemo(() => {
+    return finalRemainingBalance < 0 ? Math.abs(finalRemainingBalance) : 0;
+  }, [finalRemainingBalance]);
+
+  // Tự động kế thừa nợ tồn chưa trả hết từ chu kỳ trước
+  useEffect(() => {
+    if (!isCustomOldDebt) {
+      setOldDebt(prevUnpaidDebt);
+    }
+  }, [prevUnpaidDebt, isCustomOldDebt, cycleKeyStr, personId]);
+
+  // 8b. TỔNG TIỀN CÒN LẠI CUỐI CÙNG SAU KHI TRỪ NỢ CŨ
+  const totalFinalBalance = useMemo(() => {
+    return finalRemainingBalance - oldDebt;
+  }, [finalRemainingBalance, oldDebt]);
+
+  // Tổng các khoản đã khấu trừ
   const totalDeductionsAndSpent = useMemo(() => {
-    return daysOffDeduction + totalAdvanceSalary + totalSpentAllLogs + totalFixedExpenses;
-  }, [daysOffDeduction, totalAdvanceSalary, totalSpentAllLogs, totalFixedExpenses]);
+    return daysOffDeduction + lateDeduction + totalAdvanceSalary;
+  }, [daysOffDeduction, lateDeduction, totalAdvanceSalary]);
 
   // Phần trăm thu nhập đã chi/khấu trừ
   const spentPercentage = useMemo(() => {
@@ -413,8 +578,48 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
             <Calculator className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-              Bảng Quản Lý Ngân Sách • {personName}
+            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
+              <span>Bảng Quản Lý Ngân Sách • {personName}</span>
+              <div className="relative inline-block">
+                <button
+                  type="button"
+                  onClick={() => setShowHoursMenu(!showHoursMenu)}
+                  className="px-2.5 py-0.5 rounded-full text-xs font-extrabold text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 border border-amber-300 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                  title="Bấm vào để chọn ca 6h/ngày hoặc 12h/ngày"
+                >
+                  <Clock className="w-3 h-3 text-amber-700" />
+                  <span>{dailyWorkingHours}h/ngày</span>
+                  <ChevronDown className="w-3 h-3 text-amber-700 ml-0.5" />
+                </button>
+
+                {showHoursMenu && (
+                  <div className="absolute left-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50 text-slate-900 animate-in fade-in slide-in-from-top-1">
+                    <div className="px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chọn ca làm</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDailyWorkingHours(6);
+                        setShowHoursMenu(false);
+                      }}
+                      className={`w-full px-3 py-1.5 text-left text-xs font-bold flex items-center justify-between hover:bg-slate-100 ${dailyWorkingHours === 6 ? 'text-amber-900 bg-amber-50 font-black' : 'text-slate-700'}`}
+                    >
+                      <span>6h / ngày</span>
+                      {dailyWorkingHours === 6 && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDailyWorkingHours(12);
+                        setShowHoursMenu(false);
+                      }}
+                      className={`w-full px-3 py-1.5 text-left text-xs font-bold flex items-center justify-between hover:bg-slate-100 ${dailyWorkingHours === 12 ? 'text-amber-900 bg-amber-50 font-black' : 'text-slate-700'}`}
+                    >
+                      <span>12h / ngày</span>
+                      {dailyWorkingHours === 12 && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                    </button>
+                  </div>
+                )}
+              </div>
             </h1>
             <p className="text-xs text-slate-500 font-medium">
               Chu kỳ: {cycleInfo.shortLabel} ({cycleInfo.totalDays} ngày)
@@ -430,38 +635,43 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
         />
       </div>
 
-      {/* KHỐI TỔNG QUAN: HẠN MỨC CHI TIÊU MỖI NGÀY */}
+      {/* KHỐI TỔNG QUAN: HẠN MỨC CHI TIÊU MỖI NGÀY THÁNG HIỆN TẠI */}
       {monthlyIncome > 0 && (
-        <div className="bg-gradient-to-br from-emerald-900 via-teal-950 to-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div id="daily-budget-hero-card" className="bg-emerald-800 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-emerald-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <span className="text-xs font-semibold text-emerald-200/80 uppercase tracking-wider block">
-              Hạn Mức Chi Tiêu Mỗi Ngày (Trung Bình)
-            </span>
-            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-0.5">
-              {formatVND(currentDailyBudget)}
-              <span className="text-xs font-medium text-emerald-300 ml-1.5">/ ngày</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-emerald-200 uppercase tracking-wider block">
+                Hạn Mức Chi Tiêu Mỗi Ngày • Tháng {cycleInfo.startMonth}/{cycleInfo.startYear}
+              </span>
+              <span className="text-[10px] font-extrabold text-emerald-950 bg-emerald-200 px-2 py-0.5 rounded-full">
+                {autoDaysInMonth} ngày
+              </span>
             </div>
-            <p className="text-[11px] text-emerald-200/70 mt-1">
-              Dựa trên ngân sách sau trừ cố định chia cho {autoDaysInMonth} ngày chu kỳ {cycleInfo.shortLabel}
+            <div className="text-2xl sm:text-3xl font-black tracking-tight mt-1 text-white">
+              {formatVND(currentDailyBudget)}
+              <span className="text-xs font-semibold text-emerald-200 ml-1.5">/ ngày</span>
+            </div>
+            <p className="text-[11px] text-emerald-100/90 mt-1">
+              Dựa trên ngân sách sinh hoạt {formatVND(totalSpendingBudget)} chia cho {autoDaysInMonth} ngày chu kỳ ({cycleInfo.shortLabel})
             </p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/15 flex items-center justify-between sm:justify-start gap-4">
+          <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/15 flex items-center justify-between sm:justify-start gap-4 shrink-0">
             <div>
-              <span className="text-[11px] text-emerald-200 block">Tháng 30 ngày</span>
-              <span className="text-sm font-bold text-white">{formatVND(dailyBudget30)}/d</span>
+              <span className="text-[11px] text-emerald-200 block font-medium">Tháng {cycleInfo.startMonth}/{cycleInfo.startYear}</span>
+              <span className="text-sm font-extrabold text-white">{autoDaysInMonth} ngày</span>
             </div>
             <div className="w-px h-7 bg-white/20"></div>
             <div>
-              <span className="text-[11px] text-emerald-200 block">Tháng 31 ngày</span>
-              <span className="text-sm font-bold text-white">{formatVND(dailyBudget31)}/d</span>
+              <span className="text-[11px] text-emerald-200 block font-medium">Hạn mức tháng này</span>
+              <span className="text-sm font-extrabold text-emerald-200">{formatVND(currentDailyBudget)}/ngày</span>
             </div>
           </div>
         </div>
       )}
 
       {/* 1. KHỐI NHẬP LIỆU THU NHẬP & CÁC KHOẢN TRỪ - SẮC XANH DƯƠNG TRẦM */}
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 sm:p-6 border border-indigo-500/20 shadow-md space-y-4">
+      <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-md space-y-4">
         
         <div className="flex items-center justify-between pb-3 border-b border-white/15">
           <div className="flex items-center gap-2.5">
@@ -512,100 +722,6 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
               {cycleInfo.shortLabel}: <strong>{autoDaysInMonth} ngày</strong>
             </span>
           </div>
-        </div>
-
-        {/* Các khoản khấu trừ cố định / Tiền thẻ ngân hàng */}
-        <div className="space-y-2.5 pt-3 border-t border-white/15">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs sm:text-sm font-semibold text-white block">
-                Tiền Thẻ & Chi Phí Cố Định
-              </span>
-            </div>
-
-            {!isAddingFixed && (
-              <button
-                type="button"
-                onClick={() => setIsAddingFixed(true)}
-                className="px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-white/20"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Thêm</span>
-              </button>
-            )}
-          </div>
-
-          {/* Inline Add Fixed Expense Form */}
-          {isAddingFixed && (
-            <form onSubmit={handleAddFixedExpense} className="p-3 rounded-xl bg-white/15 border border-white/25 space-y-2.5">
-              <div className="flex items-center justify-between text-xs font-bold text-white">
-                <span>Thêm khoản trừ cố định</span>
-                <button
-                  type="button"
-                  onClick={() => setIsAddingFixed(false)}
-                  className="text-white/70 hover:text-white text-xs px-1.5 py-0.5 rounded"
-                >
-                  Đóng
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                <input
-                  type="text"
-                  placeholder="Tên khoản (VD: Tiền phòng, Gói 4G...)"
-                  value={newFixedName}
-                  onChange={(e) => setNewFixedName(e.target.value)}
-                  required
-                  className="sm:col-span-7 px-3 py-2 rounded-lg border-0 bg-white text-xs sm:text-sm text-slate-900 font-semibold focus:ring-2 focus:ring-white"
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Số tiền (VND)"
-                  value={newFixedAmountStr ? new Intl.NumberFormat('vi-VN').format(parseInt(newFixedAmountStr.replace(/\D/g, ''), 10) || 0) : ''}
-                  onChange={(e) => setNewFixedAmountStr(e.target.value.replace(/\D/g, ''))}
-                  required
-                  className="sm:col-span-3 px-3 py-2 rounded-lg border-0 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-white"
-                />
-                <button
-                  type="submit"
-                  className="sm:col-span-2 py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center transition cursor-pointer"
-                >
-                  Lưu
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Fixed Expenses List */}
-          {fixedExpenses.length > 0 && (
-            <div className="space-y-1.5">
-              {fixedExpenses.map((expense) => (
-                <div
-                  key={expense.id}
-                  className="px-3 py-2 rounded-xl bg-white/10 border border-white/15 flex items-center justify-between text-xs sm:text-sm"
-                >
-                  <span className="font-semibold text-white">{expense.name}</span>
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-extrabold text-white">-{formatVND(expense.amount)}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteFixedExpense(expense.id)}
-                      className="text-white/60 hover:text-rose-300 transition cursor-pointer p-1"
-                      title="Xóa"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {/* Total Fixed Summary */}
-              <div className="p-2.5 rounded-xl bg-white/20 border border-white/25 flex items-center justify-between text-xs sm:text-sm font-bold text-white">
-                <span>Tổng tiền thẻ & cố định:</span>
-                <span className="font-black text-white">-{formatVND(totalFixedExpenses)}</span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Mục Tiền Thưởng & Thu Nhập Thêm (Dưới ô tiền thẻ) */}
@@ -692,12 +808,6 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
                   </div>
                 </div>
               ))}
-
-              {/* Total Bonus Summary */}
-              <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-between text-xs sm:text-sm font-bold text-white">
-                <span>Tổng tiền thưởng & cộng thêm:</span>
-                <span className="font-black text-emerald-300">+{formatVND(totalBonusIncome)}</span>
-              </div>
             </div>
           )}
         </div>
@@ -723,105 +833,34 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
         />
       </div>
 
-      {/* 4. NHẬT KÝ CHI TIÊU HÔM NAY - SẮC TÍM TRẦM TÍNH */}
-      <div className="bg-gradient-to-br from-purple-950 via-slate-900 to-purple-950 text-white rounded-2xl p-4 sm:p-6 border border-purple-500/20 shadow-md space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/15">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center font-bold">
-              <Tag className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                Ghi Chép Tiêu Xài Hôm Nay
-              </h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-xs font-bold text-white bg-white/20 px-3 py-1 rounded-full border border-white/25">
-              Đã chi hôm nay: <strong className="text-purple-200">{formatVND(todaySpent)}</strong>
-            </span>
-          </div>
-        </div>
-
-        {/* Form thêm khoản chi tiêu nhanh */}
-        <form onSubmit={handleAddLog} className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-          <input
-            type="text"
-            placeholder="Bạn vừa chi tiền cho việc gì? (Ăn sáng, cà phê...)"
-            value={newLogName}
-            onChange={(e) => setNewLogName(e.target.value)}
-            className="sm:col-span-7 px-3.5 py-2.5 rounded-xl border-0 bg-white text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-white transition shadow-inner placeholder-slate-400"
-          />
-
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="Số tiền (VND)"
-            value={newLogAmountStr ? new Intl.NumberFormat('vi-VN').format(parseInt(newLogAmountStr.replace(/\D/g, ''), 10) || 0) : ''}
-            onChange={(e) => setNewLogAmountStr(e.target.value.replace(/\D/g, ''))}
-            className="sm:col-span-3 px-3.5 py-2.5 rounded-xl border-0 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-white transition shadow-inner placeholder-slate-400"
-          />
-
-          <button
-            type="submit"
-            className="sm:col-span-2 py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Thêm</span>
-          </button>
-        </form>
-
-        {/* Danh sách khoản đã chi hôm nay */}
-        {todayLogs.length > 0 && (
-          <div className="space-y-2 pt-1.5">
-            <div className="text-xs font-bold text-purple-200">
-              Các khoản đã ghi trong ngày:
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {todayLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/15 flex items-center justify-between text-xs sm:text-sm text-white"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-purple-200 font-mono text-[11px] bg-white/15 px-1.5 py-0.5 rounded border border-white/20">{log.time}</span>
-                    <span className="font-bold text-white">{log.name}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-white">-{formatVND(log.amount)}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteLog(log.id)}
-                      className="text-white/60 hover:text-amber-300 transition cursor-pointer p-1"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      {/* 3b. GHI NHẬN ĐI LÀM TRỄ */}
+      <div id="cycle-late-section">
+        <CycleLateArrivalTracker
+          currentMonth={currentMonth || '2026-08'}
+          monthlyIncome={monthlyIncome}
+          lateItems={lateItems}
+          onChangeLateItems={setLateItems}
+          dailyWorkingHours={dailyWorkingHours}
+        />
       </div>
 
-      {/* 5. BẢNG QUYẾT TOÁN DƯỚI CÙNG - SẮC ĐEN XÁM THÉP CÔNG NGHỆ */}
-      <div className="bg-gradient-to-br from-zinc-900 via-slate-900 to-zinc-950 text-white rounded-2xl p-4 sm:p-6 border border-slate-700/60 shadow-lg space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/15">
+
+
+      {/* 5. BẢNG QUYẾT TOÁN DƯỚI CÙNG */}
+      <div className="bg-white text-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/15 text-white flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
               <Receipt className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                 Bảng Quyết Toán & Số Dư Thực Tế
               </h2>
             </div>
           </div>
 
-          <span className="text-xs font-bold text-white bg-white/15 px-3 py-1 rounded-full self-start sm:self-auto border border-white/20">
+          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full self-start sm:self-auto border border-slate-200">
             {cycleInfo.title} ({cycleInfo.totalDays} ngày)
           </span>
         </div>
@@ -830,58 +869,58 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
           
           {/* 1. Thu nhập ban đầu */}
-          <div className="p-3 sm:p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 space-y-1">
-            <div className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-              <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="p-3 sm:p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 space-y-1">
+            <div className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+              <Wallet className="w-3.5 h-3.5 text-emerald-600" />
               <span>Thu Nhập</span>
             </div>
-            <div className="text-base sm:text-lg font-black text-emerald-400 tracking-tight">
+            <div className="text-base sm:text-lg font-black text-emerald-700 tracking-tight">
               +{formatVND(totalEffectiveIncome)}
             </div>
-            <p className="text-[11px] text-emerald-200/80 truncate">
+            <p className="text-[11px] text-emerald-800/80 font-medium truncate">
               {totalBonusIncome > 0 ? `Lương ${formatVND(monthlyIncome)} + Thưởng ${formatVND(totalBonusIncome)}` : 'Mức lương chu kỳ này'}
             </p>
           </div>
 
           {/* 2. Khấu trừ ngày nghỉ */}
-          <div className="p-3 sm:p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 space-y-1">
-            <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-              <MinusCircle className="w-3.5 h-3.5 text-amber-400" />
+          <div className="p-3 sm:p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 space-y-1">
+            <div className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+              <MinusCircle className="w-3.5 h-3.5 text-amber-600" />
               <span>Trừ Ngày Nghỉ</span>
             </div>
-            <div className="text-base sm:text-lg font-black text-amber-400 tracking-tight">
+            <div className="text-base sm:text-lg font-black text-amber-700 tracking-tight">
               -{formatVND(daysOffDeduction)}
             </div>
-            <p className="text-[11px] text-amber-200/80 font-medium truncate">
+            <p className="text-[11px] text-amber-800/80 font-medium truncate">
               {unpaidDates.length > 0 ? `${unpaidDates.length} ngày đã chọn` : '0 ngày trừ'}
             </p>
           </div>
 
-          {/* 3. Tiền đã ứng */}
-          <div className="p-3 sm:p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 space-y-1">
-            <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-              <Banknote className="w-3.5 h-3.5 text-amber-400" />
-              <span>Đã Tạm Ứng</span>
+          {/* 3. Khấu trừ đi làm trễ */}
+          <div className="p-3 sm:p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 space-y-1">
+            <div className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Trừ Làm Trễ</span>
             </div>
-            <div className="text-base sm:text-lg font-black text-amber-400 tracking-tight">
-              -{formatVND(totalAdvanceSalary)}
+            <div className="text-base sm:text-lg font-black text-amber-700 tracking-tight">
+              -{formatVND(lateDeduction)}
             </div>
-            <p className="text-[11px] text-amber-200/80 font-medium truncate">
-              {totalAdvanceSalary > 0 ? `${advanceItems.length} lần ứng` : 'Chưa ứng'}
+            <p className="text-[11px] text-amber-800/80 font-medium truncate">
+              {lateItems.length > 0 ? `${lateItems.reduce((s, i) => s + i.hours, 0)}h trễ (${lateItems.length} lần)` : '0 lần trễ'}
             </p>
           </div>
 
-          {/* 4. Tiền tiêu xài & Cố định */}
-          <div className="p-3 sm:p-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30 space-y-1">
-            <div className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5 text-sky-400" />
-              <span>Tiêu & Cố Định</span>
+          {/* 4. Tiền đã ứng */}
+          <div className="p-3 sm:p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 space-y-1">
+            <div className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+              <Banknote className="w-3.5 h-3.5 text-rose-600" />
+              <span>Đã Tạm Ứng</span>
             </div>
-            <div className="text-base sm:text-lg font-black text-sky-400 tracking-tight">
-              -{formatVND(totalSpentAllLogs + totalFixedExpenses)}
+            <div className="text-base sm:text-lg font-black text-rose-700 tracking-tight">
+              -{formatVND(totalAdvanceSalary)}
             </div>
-            <p className="text-[11px] text-sky-200/80 truncate">
-              Tiêu {formatVND(totalSpentAllLogs)} + Cố định {formatVND(totalFixedExpenses)}
+            <p className="text-[11px] text-rose-800/80 font-medium truncate">
+              {totalAdvanceSalary > 0 ? `${advanceItems.length} lần ứng` : 'Chưa ứng'}
             </p>
           </div>
 
@@ -890,8 +929,8 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
         {/* HERO CARD: SỐ TIỀN CÒN LẠI CUỐI CÙNG (DƯ HOẶC THIẾU) */}
         <div className={`p-4 sm:p-6 rounded-2xl text-white shadow-md space-y-2.5 transition-all ${
           finalRemainingBalance >= 0 
-            ? 'bg-gradient-to-br from-emerald-800 via-teal-900 to-emerald-950 border border-emerald-500/30'
-            : 'bg-gradient-to-br from-amber-950 via-stone-900 to-zinc-900 border border-amber-500/40'
+            ? 'bg-emerald-800 border border-emerald-700'
+            : 'bg-rose-900 border border-rose-800'
         }`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -937,6 +976,149 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
           </div>
         </div>
 
+      </div>
+
+      {/* 6. QUẢN LÝ NỢ CŨ, NỢ MỚI & TỔNG TIỀN CÒN LẠI DƯỚI CÙNG */}
+      <div className="bg-white text-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-md space-y-4">
+        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200">
+          <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
+            <CreditCard className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              Quản Lý Khoản Nợ & Tổng Tiền Còn Lại
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">
+              Nhập số nợ cũ & nợ mới để quyết toán chính xác tổng tiền còn lại
+            </p>
+          </div>
+        </div>
+
+        {/* 2 Ô Nhập Nợ Cũ & Nợ Mới */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Ô Nợ cũ */}
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-1.5">
+            <label className="text-xs sm:text-sm font-bold text-amber-900 flex items-center justify-between">
+              <span>Nợ Cũ (Tồn đọng)</span>
+              <span className="text-[10px] text-amber-800 bg-amber-200/70 px-2 py-0.5 rounded-full font-extrabold">Trừ vào số dư</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={oldDebt ? `-${new Intl.NumberFormat('vi-VN').format(oldDebt)}` : ''}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                  setOldDebt(val);
+                  setIsCustomOldDebt(true);
+                }}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-amber-300 bg-white text-base font-extrabold text-amber-950 focus:ring-2 focus:ring-amber-500 focus:outline-none transition placeholder-amber-400"
+                placeholder="-0 (Nhập số tiền nợ cũ)"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700">
+                ₫
+              </div>
+            </div>
+            <p className="text-[11px] text-amber-800/80 font-medium">Khoản nợ chưa trả hết từ các chu kỳ trước</p>
+
+            {/* Trạng thái tự động kế thừa / Nút đồng bộ từ chu kỳ trước */}
+            {prevUnpaidDebt > 0 ? (
+              oldDebt === prevUnpaidDebt ? (
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-900 bg-amber-200/80 px-2.5 py-1.5 rounded-lg border border-amber-300">
+                  <Check className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span>Tự động kế thừa -{formatVND(prevUnpaidDebt)} nợ tồn từ chu kỳ {prevCycleInfo.shortLabel}</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomOldDebt(false);
+                    setOldDebt(prevUnpaidDebt);
+                  }}
+                  className="w-full flex items-center justify-between gap-1.5 text-[11px] font-bold text-amber-950 bg-amber-200 hover:bg-amber-300 px-2.5 py-1.5 rounded-lg border border-amber-400 transition cursor-pointer text-left shadow-sm"
+                  title="Bấm để đồng bộ số nợ tồn chưa trả hết từ chu kỳ trước"
+                >
+                  <span className="flex items-center gap-1 overflow-hidden truncate">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-700 shrink-0 animate-pulse" />
+                    <span className="truncate">Áp dụng nợ tồn từ {prevCycleInfo.shortLabel}: -{formatVND(prevUnpaidDebt)}</span>
+                  </span>
+                  <span className="underline shrink-0 text-[10px] font-extrabold uppercase text-amber-800">Cập nhật</span>
+                </button>
+              )
+            ) : (
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-1.5 rounded-lg border border-emerald-300">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Chu kỳ trước ({prevCycleInfo.shortLabel}) đã trả hết nợ</span>
+              </div>
+            )}
+          </div>
+
+          {/* Ô Nợ mới (Tự động cập nhật theo số dư khả dụng tháng mới) */}
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 space-y-1.5">
+            <label className="text-xs sm:text-sm font-bold text-rose-900 flex items-center justify-between">
+              <span>Nợ Mới (Phát sinh)</span>
+              <span className="text-[10px] text-rose-800 bg-rose-200/70 px-2 py-0.5 rounded-full font-extrabold">Tự động cập nhật</span>
+            </label>
+            <div className="w-full px-3.5 py-2.5 rounded-lg border border-rose-300 bg-white text-base font-extrabold text-rose-950 flex items-center justify-between shadow-inner">
+              <span>{newDebt > 0 ? `-${new Intl.NumberFormat('vi-VN').format(newDebt)}` : '0'}</span>
+              <span className="text-xs font-bold text-rose-700">₫</span>
+            </div>
+
+            {/* Trạng thái tự động điền từ khoản âm tiền trong tháng */}
+            {finalRemainingBalance < 0 ? (
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-rose-900 bg-rose-200/80 px-2.5 py-1.5 rounded-lg border border-rose-300">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-700 shrink-0" />
+                <span>Phát sinh -{formatVND(newDebt)} nợ mới do số dư tháng này bị âm</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-1.5 rounded-lg border border-emerald-300">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Tháng này có số dư khả dụng dương ({formatVND(finalRemainingBalance)}) ➔ Nợ mới = 0 ₫</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Ô TỔNG TIỀN CÒN LẠI CUỐI CÙNG SAU KHI TRỪ NỢ */}
+        <div className={`p-4 sm:p-5 rounded-2xl text-white shadow-md space-y-2.5 transition-all ${
+          totalFinalBalance >= 0 
+            ? 'bg-emerald-800 border border-emerald-700'
+            : 'bg-rose-900 border border-rose-800'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide">
+              {totalFinalBalance >= 0 ? 'Tổng Tiền Còn Lại (Sau Khi Trừ Nợ):' : 'Cảnh Báo: Tổng Tiền Đang Bị Âm (Thiếu Trả Nợ):'}
+            </span>
+
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/20 text-white border border-white/30 self-start sm:self-auto">
+              {totalFinalBalance >= 0 ? '✓ Đã Trừ Sạch Khoản Nợ' : '⚠ Thâm Hụt Cần Bù Trả'}
+            </span>
+          </div>
+
+          <div className="py-1">
+            <div className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              {formatVND(totalFinalBalance)}
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-white/20 text-xs text-white/90 space-y-1.5">
+            <p className="font-semibold text-white">
+              Công thức tổng tiền còn lại / tổng nợ tích lũy:
+            </p>
+            <p className="text-[11px] leading-relaxed font-mono bg-black/30 p-2.5 rounded-xl border border-white/10 text-white">
+              = Số dư thực tế ({formatVND(finalRemainingBalance)}) - Nợ cũ ({formatVND(oldDebt)})
+            </p>
+            <p className="text-[11px] text-white/80">
+              {totalFinalBalance >= 0
+                ? oldDebt > 0
+                  ? `Số dư khả dụng tháng mới (${formatVND(finalRemainingBalance)}) đủ để trừ hết Nợ Cũ (${formatVND(oldDebt)}). Bạn còn dư ${formatVND(totalFinalBalance)}.`
+                  : `Tháng này bạn còn dư ${formatVND(totalFinalBalance)} và không có khoản nợ nào.`
+                : finalRemainingBalance < 0
+                  ? `Tháng này bị thâm hụt ${formatVND(newDebt)} (Nợ mới = ${formatVND(newDebt)}). Cùng với Nợ Cũ (${formatVND(oldDebt)}), tổng số nợ thâm hụt là ${formatVND(Math.abs(totalFinalBalance))}.`
+                  : `Số dư khả dụng tháng mới (${formatVND(finalRemainingBalance)}) được dùng để trả một phần Nợ Cũ (${formatVND(oldDebt)}). Bạn còn thiếu ${formatVND(Math.abs(totalFinalBalance))} sẽ chuyển sang chu kỳ tiếp theo.`}
+            </p>
+          </div>
+        </div>
       </div>
 
     </div>

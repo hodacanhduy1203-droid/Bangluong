@@ -1,4 +1,4 @@
-import { Category, Wallet, TransactionType } from '../types';
+import { Category, Wallet, TransactionType, BonusItem, FixedExpenseItem, LateArrivalItem, SalaryAdvanceItem } from '../types';
 
 /**
  * Format a number to Vietnamese Dong currency string
@@ -404,4 +404,123 @@ export function getCurrentSalaryCycleKey(): string {
     }
   }
   return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+export function getPreviousCycleKey(cycleKey: string): string {
+  const [yearStr, monthStr] = (cycleKey || '2026-08').split('-');
+  let year = parseInt(yearStr, 10) || 2026;
+  let month = parseInt(monthStr, 10) || 8;
+  month -= 1;
+  if (month < 1) {
+    month = 12;
+    year -= 1;
+  }
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+/**
+ * Tính toán nợ chưa trả còn dư lại (unpaid debt) ở cuối chu kỳ được chỉ định
+ * Nếu totalFinalBalance < 0 -> trả về Math.abs(totalFinalBalance)
+ * Nếu totalFinalBalance >= 0 -> trả về 0
+ */
+export function getCycleUnpaidDebt(personId: string, cycleKey: string, depth = 0): number {
+  if (depth > 12) return 0;
+
+  const getCycleStorageKey = (key: string) => `calc_person_${personId}_${cycleKey}_${key}`;
+  const getPersonBaseKey = (key: string) => `calc_person_${personId}_${key}`;
+
+  // 1. Lương hàng tháng
+  const savedIncome = localStorage.getItem(getCycleStorageKey('income')) || localStorage.getItem(getPersonBaseKey('income'));
+  const monthlyIncome = savedIncome ? parseInt(savedIncome, 10) : 5000000;
+
+  const cycleInfo = getSalaryCycleInfo(cycleKey);
+  const cycleDaysData = generateCycleCalendarDays(cycleKey);
+
+  // 2. Thưởng & thu nhập thêm
+  let bonusItems: BonusItem[] = [];
+  const savedBonus = localStorage.getItem(getCycleStorageKey('bonus_items'));
+  if (savedBonus) {
+    try { bonusItems = JSON.parse(savedBonus); } catch {}
+  }
+  const totalBonus = bonusItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalEffectiveIncome = monthlyIncome + totalBonus;
+
+  // 3. Chi phí cố định & Đơn giá ngày
+  let fixedExpenses: FixedExpenseItem[] = [];
+  const savedFixed = localStorage.getItem(getCycleStorageKey('fixed_expenses')) || localStorage.getItem(getPersonBaseKey('fixed_expenses'));
+  if (savedFixed) {
+    try { fixedExpenses = JSON.parse(savedFixed); } catch {}
+  }
+  const totalFixedExpenses = fixedExpenses.reduce((sum, item) => sum + item.amount, 0);
+  const totalSpendingBudget = Math.max(0, totalEffectiveIncome - totalFixedExpenses);
+
+  const startMonthRate = totalSpendingBudget / (cycleDaysData.startMonthDaysCount || 31);
+  const endMonthRate = totalSpendingBudget / (cycleDaysData.endMonthDaysCount || 31);
+
+  // 4. Khấu trừ ngày nghỉ
+  let unpaidDates: string[] = [];
+  const savedUnpaid = localStorage.getItem(getCycleStorageKey('unpaid_dates'));
+  if (savedUnpaid) {
+    try { unpaidDates = JSON.parse(savedUnpaid); } catch {}
+  }
+  const dayMap = new Map<string, any>();
+  cycleDaysData.days.forEach(d => dayMap.set(d.dateStr, d));
+
+  const daysOffDeduction = unpaidDates.reduce((sum, dateStr) => {
+    const day = dayMap.get(dateStr);
+    const rate = day ? (day.phase === 'start_month' ? startMonthRate : endMonthRate) : startMonthRate;
+    return sum + Math.round(rate);
+  }, 0);
+
+  // 5. Khấu trừ đi làm trễ
+  let dailyWorkingHours = 12;
+  const savedHours = localStorage.getItem(getCycleStorageKey('daily_working_hours')) || localStorage.getItem(getPersonBaseKey('daily_working_hours'));
+  if (savedHours) {
+    dailyWorkingHours = parseInt(savedHours, 10) || 12;
+  }
+  let lateItems: LateArrivalItem[] = [];
+  const savedLate = localStorage.getItem(getCycleStorageKey('late_items'));
+  if (savedLate) {
+    try { lateItems = JSON.parse(savedLate); } catch {}
+  }
+  const startMonthHourlyRate = Math.round(startMonthRate / dailyWorkingHours);
+  const endMonthHourlyRate = Math.round(endMonthRate / dailyWorkingHours);
+
+  const lateDeduction = lateItems.reduce((sum, item) => {
+    const day = dayMap.get(item.date);
+    const isStartMonth = day ? day.phase === 'start_month' : true;
+    const hourlyRate = isStartMonth ? startMonthHourlyRate : endMonthHourlyRate;
+    return sum + Math.round(item.hours * hourlyRate);
+  }, 0);
+
+  // 6. Tạm ứng lương
+  let advanceItems: SalaryAdvanceItem[] = [];
+  const savedAdvance = localStorage.getItem(getCycleStorageKey('advance_items'));
+  if (savedAdvance) {
+    try { advanceItems = JSON.parse(savedAdvance); } catch {}
+  }
+  const totalAdvanceSalary = advanceItems.reduce((sum, item) => sum + item.amount, 0);
+
+  // 7. Nợ cũ của chu kỳ này
+  let oldDebt = 0;
+  const isCustomOldDebt = localStorage.getItem(getCycleStorageKey('is_custom_old_debt')) === 'true';
+  if (isCustomOldDebt) {
+    const savedOldDebt = localStorage.getItem(getCycleStorageKey('old_debt'));
+    if (savedOldDebt !== null && savedOldDebt !== undefined) {
+      oldDebt = parseInt(savedOldDebt, 10) || 0;
+    }
+  } else {
+    // Nếu không tự nhập Nợ Cũ riêng -> Tự động tính kế thừa nợ tồn từ chu kỳ trước
+    const prevKey = getPreviousCycleKey(cycleKey);
+    oldDebt = getCycleUnpaidDebt(personId, prevKey, depth + 1);
+  }
+
+  // 8. Số dư thực tế & Nợ mới của chu kỳ này
+  const finalRemainingBalance = totalEffectiveIncome - daysOffDeduction - lateDeduction - totalAdvanceSalary;
+
+  // Tổng số dư cuối cùng sau khi trừ nợ cũ
+  const totalFinalBalance = finalRemainingBalance - oldDebt;
+
+  // Nếu tổng số dư âm (< 0) -> Số nợ còn lại chưa trả hết mang sang chu kỳ tiếp theo
+  return totalFinalBalance < 0 ? Math.abs(totalFinalBalance) : 0;
 }

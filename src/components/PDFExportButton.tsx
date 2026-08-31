@@ -46,39 +46,42 @@ export const PDFExportButton: React.FC<PDFExportButtonProps> = ({
   };
 
   return (
-    <div className="relative inline-block no-print z-30">
-      <div className="flex items-center gap-1 bg-slate-900 text-white rounded-xl shadow-md p-1 border border-slate-700">
+    <div className="relative inline-flex no-print z-30 shrink-0 w-fit self-start sm:self-auto">
+      <div className="inline-flex items-center bg-emerald-700/90 text-white rounded-xl shadow-xs p-0.5 border border-emerald-800/80 w-fit">
         {/* Main Export Button */}
         <button
           type="button"
           onClick={handleExportDirect}
           disabled={isExporting}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold transition-all duration-150 cursor-pointer disabled:opacity-75 disabled:cursor-wait shadow-xs"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold transition-all duration-150 cursor-pointer disabled:opacity-75 disabled:cursor-wait"
           title="Tải giao diện hiện tại thành file PDF về điện thoại"
         >
           {isExporting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
               <span>Đang tạo PDF...</span>
             </>
           ) : showSuccessToast ? (
             <>
-              <Check className="w-4 h-4 text-emerald-200" />
+              <Check className="w-3.5 h-3.5 text-emerald-200" />
               <span>Đã Tải Xong PDF!</span>
             </>
           ) : (
             <>
-              <FileDown className="w-4 h-4 text-emerald-200" />
+              <FileDown className="w-4 h-4 text-emerald-100" />
               <span>Xuất File PDF</span>
             </>
           )}
         </button>
 
+        {/* Divider */}
+        <div className="w-px h-5 bg-emerald-500/40 mx-0.5" />
+
         {/* Dropdown Toggle */}
         <button
           type="button"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="p-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-emerald-600/70 text-emerald-100 hover:text-white transition cursor-pointer"
           title="Tùy chọn in / xuất PDF"
         >
           <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />

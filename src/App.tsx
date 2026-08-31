@@ -96,7 +96,7 @@ export default function App() {
       {/* Giao diện tính toán & lịch cho người đang chọn */}
       <main className="max-w-5xl mx-auto px-3 sm:px-5 pt-3 sm:pt-4">
         <DailyBudgetCalculator 
-          key={activePersonId}
+          key={`${activePersonId}_${currentMonth}`}
           personId={activePersonId}
           personName={activePerson.name}
           currentMonth={currentMonth} 

@@ -98,20 +98,20 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
   const endMonthDays = cycleData.days.filter(d => d.phase === 'end_month');
 
   return (
-    <div className="bg-gradient-to-br from-stone-900 via-amber-950/70 to-stone-900 text-white rounded-2xl p-4 sm:p-5 border border-amber-500/20 shadow-md transition-all space-y-3">
+    <div className="bg-amber-50 text-slate-900 rounded-2xl p-4 sm:p-5 border border-amber-200 shadow-sm transition-all space-y-3">
       {/* Header của Lịch (Bấm vào toàn bộ ô để Mở/Ẩn lịch) */}
       <div 
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="flex items-center justify-between gap-2 pb-2 border-b border-white/15 cursor-pointer select-none group"
+        className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200 cursor-pointer select-none group"
       >
         <div className="flex items-center gap-2 flex-1">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold group-hover:bg-amber-500/30 transition shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold group-hover:bg-amber-200 transition shrink-0">
             <CalendarIcon className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5 flex-wrap">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
               <span>Lịch Đánh Dấu Ngày Nghỉ Trong Chu Kỳ</span>
-              <span className="text-[10px] font-extrabold text-amber-200 bg-amber-500/20 px-2 py-0.2 rounded-full border border-amber-400/30">
+              <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100/90 px-2 py-0.2 rounded-full border border-amber-200/90">
                 {breakdown.totalUnpaidCount} ngày nghỉ • -{formatVND(breakdown.totalDeduction)}
               </span>
             </h3>
@@ -120,7 +120,7 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
 
         {/* Icon Chevron Toggle */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="p-1.5 rounded-lg bg-white/10 group-hover:bg-white/20 text-amber-200 transition">
+          <div className="p-1.5 rounded-lg bg-amber-100/80 group-hover:bg-amber-200 text-amber-900 transition">
             {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </div>
         </div>
@@ -130,18 +130,18 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
       {isCollapsed && (
         <div className="pt-0.5 flex flex-col gap-1.5 animate-in fade-in duration-200">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-amber-200/90 font-semibold text-[11px]">
+            <span className="text-slate-700 font-semibold text-[11px]">
               Chi tiết {breakdown.totalUnpaidCount} ngày nghỉ:
             </span>
             {breakdown.totalUnpaidCount > 0 && (
-              <span className="text-[10px] text-amber-300 font-extrabold">
+              <span className="text-[10px] text-amber-700 font-extrabold">
                 Tổng trừ: -{formatVND(breakdown.totalDeduction)}
               </span>
             )}
           </div>
 
           {sortedUnpaidDays.length === 0 ? (
-            <div className="text-stone-400 text-xs italic py-0.5">
+            <div className="text-slate-400 text-xs italic py-0.5">
               Chưa đánh dấu ngày nghỉ nào trong chu kỳ này
             </div>
           ) : (
@@ -151,10 +151,10 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
                 return (
                   <span
                     key={day.dateStr}
-                    className="inline-flex items-center gap-1.5 bg-amber-500/20 text-amber-200 border border-amber-400/30 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs"
+                    className="inline-flex items-center gap-1.5 bg-amber-100/90 text-amber-950 border border-amber-300/80 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs"
                   >
                     <span>{day.dayOfWeekShort}, {String(day.dayNumber).padStart(2, '0')}/{String(day.month).padStart(2, '0')}</span>
-                    <span className="text-[10px] text-amber-300/80 font-normal">(-{formatVND(rate)})</span>
+                    <span className="text-[10px] text-slate-600 font-normal">(-{formatVND(rate)})</span>
                   </span>
                 );
               })}
@@ -169,43 +169,43 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
           {/* Bảng Đơn Giá 2 Tháng Trong Chu Kỳ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {/* Tháng Đầu (26 -> Hết Tháng) */}
-            <div className="p-2.5 rounded-xl bg-white/10 border border-white/15 space-y-0.5 text-white">
+            <div className="p-2.5 rounded-xl bg-white border border-amber-200/80 space-y-0.5 text-slate-900 shadow-2xs">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="font-bold text-amber-200 uppercase tracking-wider text-[10px]">
+                <span className="font-bold text-amber-900 uppercase tracking-wider text-[10px]">
                   Tháng {cycleInfo.startMonth} ({cycleData.startMonthDaysCount} ngày)
                 </span>
-                <span className="text-[10px] font-extrabold text-white bg-white/20 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100 px-1.5 py-0.2 rounded">
                   26/{String(cycleInfo.startMonth).padStart(2, '0')} → {cycleData.startMonthDaysCount}/{String(cycleInfo.startMonth).padStart(2, '0')}
                 </span>
               </div>
-              <div className="text-xs sm:text-sm font-black text-white">
+              <div className="text-xs sm:text-sm font-black text-slate-900">
                 1 ngày = {formatVND(startMonthRate)}
-                <span className="text-[10px] font-normal text-amber-200/80 ml-1">
+                <span className="text-[10px] font-normal text-slate-500 ml-1">
                   ({formatVND(monthlyIncome)} ÷ {cycleData.startMonthDaysCount}d)
                 </span>
               </div>
-              <div className="text-[10px] text-amber-200 font-semibold">
+              <div className="text-[10px] text-amber-900 font-semibold">
                 Đã chọn: <strong>{breakdown.startMonthUnpaidCount} ngày</strong> = -{formatVND(breakdown.startMonthDeduction)}
               </div>
             </div>
 
             {/* Tháng Sau (01 -> 25) */}
-            <div className="p-2.5 rounded-xl bg-white/10 border border-white/15 space-y-0.5 text-white">
+            <div className="p-2.5 rounded-xl bg-white border border-amber-200/80 space-y-0.5 text-slate-900 shadow-2xs">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="font-bold text-amber-200 uppercase tracking-wider text-[10px]">
+                <span className="font-bold text-amber-900 uppercase tracking-wider text-[10px]">
                   Tháng {cycleInfo.endMonth} ({cycleData.endMonthDaysCount} ngày)
                 </span>
-                <span className="text-[10px] font-extrabold text-white bg-white/20 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100 px-1.5 py-0.2 rounded">
                   01/{String(cycleInfo.endMonth).padStart(2, '0')} → 25/{String(cycleInfo.endMonth).padStart(2, '0')}
                 </span>
               </div>
-              <div className="text-xs sm:text-sm font-black text-white">
+              <div className="text-xs sm:text-sm font-black text-slate-900">
                 1 ngày = {formatVND(endMonthRate)}
-                <span className="text-[10px] font-normal text-amber-200/80 ml-1">
+                <span className="text-[10px] font-normal text-slate-500 ml-1">
                   ({formatVND(monthlyIncome)} ÷ {cycleData.endMonthDaysCount}d)
                 </span>
               </div>
-              <div className="text-[10px] text-amber-200 font-semibold">
+              <div className="text-[10px] text-amber-900 font-semibold">
                 Đã chọn: <strong>{breakdown.endMonthUnpaidCount} ngày</strong> = -{formatVND(breakdown.endMonthDeduction)}
               </div>
             </div>
@@ -213,15 +213,15 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
 
           {/* GIAI ĐOẠN 1: TỪ NGÀY 26 ĐẾN HẾT THÁNG ĐẦU */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-bold text-amber-200">
+            <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                 <span>Giai đoạn 1: Tháng {cycleInfo.startMonth} (26/{String(cycleInfo.startMonth).padStart(2, '0')} đến {cycleData.startMonthDaysCount}/{String(cycleInfo.startMonth).padStart(2, '0')})</span>
               </span>
-              <span className="text-[10px] text-amber-300/80 font-normal">{startMonthDays.length} ngày</span>
+              <span className="text-[10px] text-slate-500 font-normal">{startMonthDays.length} ngày</span>
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
               {startMonthDays.map((day) => {
                 const isUnpaid = unpaidDates.includes(day.dateStr);
                 return (
@@ -231,14 +231,14 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
                     onClick={() => toggleDate(day.dateStr)}
                     className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all relative cursor-pointer flex flex-col justify-between min-h-[54px] sm:min-h-[58px] ${
                       isUnpaid
-                        ? 'border-2 border-amber-400 bg-amber-500 text-slate-950 shadow-md font-black'
+                        ? 'border-2 border-amber-500 bg-amber-500 text-slate-950 shadow-md font-black'
                         : day.isToday
-                        ? 'border-emerald-300 bg-emerald-500/30 text-emerald-100 font-black'
-                        : 'border-white/15 bg-white/5 text-white hover:bg-white/15'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-950 font-bold'
+                        : 'border-slate-200/90 bg-white text-slate-800 hover:bg-amber-50'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full leading-none">
-                      <span className={`text-[9px] font-extrabold ${isUnpaid ? 'text-slate-950' : day.isToday ? 'text-emerald-300' : day.dayOfWeek === 0 ? 'text-amber-400' : 'text-white/70'}`}>
+                      <span className={`text-[9px] font-extrabold ${isUnpaid ? 'text-slate-950' : day.isToday ? 'text-emerald-700' : day.dayOfWeek === 0 ? 'text-rose-600' : 'text-slate-500'}`}>
                         {day.dayOfWeekShort}
                       </span>
                       {day.isToday && !isUnpaid && (
@@ -247,24 +247,24 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
                         </span>
                       )}
                       {isUnpaid && (
-                        <span className="text-[8px] font-black text-amber-950 bg-amber-200 px-1 py-0.1 rounded">
+                        <span className="text-[8px] font-black text-amber-100 bg-amber-950 px-1 py-0.1 rounded">
                           Nghỉ
                         </span>
                       )}
                     </div>
 
                     <div className="my-0.5 leading-tight">
-                      <div className={`text-sm sm:text-base font-black ${isUnpaid ? 'text-slate-950' : 'text-white'}`}>
+                      <div className={`text-sm sm:text-base font-black ${isUnpaid ? 'text-slate-950' : 'text-slate-900'}`}>
                         {day.dayNumber}
-                        <span className={`text-[9px] font-bold ml-0.5 ${isUnpaid ? 'text-slate-800' : 'text-white/60'}`}>/{day.month}</span>
+                        <span className={`text-[9px] font-bold ml-0.5 ${isUnpaid ? 'text-slate-800' : 'text-slate-400'}`}>/{day.month}</span>
                       </div>
                     </div>
 
                     <div className="text-[9px] font-bold truncate leading-none">
                       {isUnpaid ? (
-                        <span className="text-slate-950 font-extrabold">-{formatVND(startMonthRate)}</span>
+                        <span className="text-slate-950 font-black">-{formatVND(startMonthRate)}</span>
                       ) : (
-                        <span className="text-white/40 font-medium">{formatVND(startMonthRate)}</span>
+                        <span className="text-slate-400 font-medium">{formatVND(startMonthRate)}</span>
                       )}
                     </div>
                   </button>
@@ -274,13 +274,13 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
           </div>
 
           {/* GIAI ĐOẠN 2: TỪ NGÀY 01 ĐẾN NGÀY 25 THÁNG SAU */}
-          <div className="space-y-1.5 pt-1.5 border-t border-white/15">
-            <div className="flex items-center justify-between text-[11px] font-bold text-amber-200">
+          <div className="space-y-1.5 pt-1.5 border-t border-slate-200">
+            <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                 <span>Giai đoạn 2: Tháng {cycleInfo.endMonth} (01/{String(cycleInfo.endMonth).padStart(2, '0')} đến 25/{String(cycleInfo.endMonth).padStart(2, '0')})</span>
               </span>
-              <span className="text-[10px] text-amber-300/80 font-normal">{endMonthDays.length} ngày</span>
+              <span className="text-[10px] text-slate-500 font-normal">{endMonthDays.length} ngày</span>
             </div>
 
             <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
@@ -293,14 +293,14 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
                     onClick={() => toggleDate(day.dateStr)}
                     className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all relative cursor-pointer flex flex-col justify-between min-h-[54px] sm:min-h-[58px] ${
                       isUnpaid
-                        ? 'border-2 border-amber-400 bg-amber-500 text-slate-950 shadow-md font-black'
+                        ? 'border-2 border-amber-500 bg-amber-500 text-slate-950 shadow-md font-black'
                         : day.isToday
-                        ? 'border-emerald-300 bg-emerald-500/30 text-emerald-100 font-black'
-                        : 'border-white/15 bg-white/5 text-white hover:bg-white/15'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-950 font-bold'
+                        : 'border-slate-200/90 bg-white text-slate-800 hover:bg-amber-50'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full leading-none">
-                      <span className={`text-[9px] font-extrabold ${isUnpaid ? 'text-slate-950' : day.isToday ? 'text-emerald-300' : day.dayOfWeek === 0 ? 'text-amber-400' : 'text-white/70'}`}>
+                      <span className={`text-[9px] font-extrabold ${isUnpaid ? 'text-slate-950' : day.isToday ? 'text-emerald-700' : day.dayOfWeek === 0 ? 'text-rose-600' : 'text-slate-500'}`}>
                         {day.dayOfWeekShort}
                       </span>
                       {day.isToday && !isUnpaid && (
@@ -309,24 +309,24 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
                         </span>
                       )}
                       {isUnpaid && (
-                        <span className="text-[8px] font-black text-amber-950 bg-amber-200 px-1 py-0.1 rounded">
+                        <span className="text-[8px] font-black text-amber-100 bg-amber-950 px-1 py-0.1 rounded">
                           Nghỉ
                         </span>
                       )}
                     </div>
 
                     <div className="my-0.5 leading-tight">
-                      <div className={`text-sm sm:text-base font-black ${isUnpaid ? 'text-slate-950' : 'text-white'}`}>
+                      <div className={`text-sm sm:text-base font-black ${isUnpaid ? 'text-slate-950' : 'text-slate-900'}`}>
                         {day.dayNumber}
-                        <span className={`text-[9px] font-bold ml-0.5 ${isUnpaid ? 'text-slate-800' : 'text-white/60'}`}>/{day.month}</span>
+                        <span className={`text-[9px] font-bold ml-0.5 ${isUnpaid ? 'text-slate-800' : 'text-slate-400'}`}>/{day.month}</span>
                       </div>
                     </div>
 
                     <div className="text-[9px] font-bold truncate leading-none">
                       {isUnpaid ? (
-                        <span className="text-slate-950 font-extrabold">-{formatVND(endMonthRate)}</span>
+                        <span className="text-slate-950 font-black">-{formatVND(endMonthRate)}</span>
                       ) : (
-                        <span className="text-white/40 font-medium">{formatVND(endMonthRate)}</span>
+                        <span className="text-slate-400 font-medium">{formatVND(endMonthRate)}</span>
                       )}
                     </div>
                   </button>
@@ -336,12 +336,12 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
           </div>
 
           {/* TỔNG KẾT KHẤU TRỪ NGÀY NGHỈ CHÍNH XÁC */}
-          <div className="p-3 rounded-xl bg-white/10 border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="p-3 rounded-xl bg-amber-100/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div>
-              <span className="font-extrabold text-amber-200 block text-xs">
+              <span className="font-extrabold text-amber-950 block text-xs">
                 Tổng khấu trừ ngày nghỉ: -{formatVND(breakdown.totalDeduction)}
               </span>
-              <p className="text-stone-300 text-[10px]">
+              <p className="text-slate-700 text-[10px]">
                 {breakdown.startMonthUnpaidCount > 0 && (
                   <span>Tháng {cycleInfo.startMonth}: {breakdown.startMonthUnpaidCount}d × {formatVND(startMonthRate)} = <strong>-{formatVND(breakdown.startMonthDeduction)}</strong></span>
                 )}
@@ -354,7 +354,7 @@ export const CycleDaysOffCalendar: React.FC<CycleDaysOffCalendarProps> = ({
             </div>
 
             <div className="text-right shrink-0">
-              <span className="text-sm sm:text-base font-black text-amber-300 bg-stone-900/80 px-2.5 py-1 rounded-lg border border-amber-500/30 shadow-2xs inline-block">
+              <span className="text-sm sm:text-base font-black text-amber-950 bg-amber-500 px-2.5 py-1 rounded-lg shadow-2xs inline-block">
                 -{formatVND(breakdown.totalDeduction)}
               </span>
             </div>

@@ -73,6 +73,14 @@ export interface SalaryAdvanceItem {
   createdAt: number;
 }
 
+export interface LateArrivalItem {
+  id: string;
+  date: string; // YYYY-MM-DD
+  hours: number; // Hours late
+  note?: string;
+  createdAt: number;
+}
+
 export interface FixedExpenseItem {
   id: string;
   name: string;

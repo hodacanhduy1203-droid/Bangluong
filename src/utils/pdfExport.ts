@@ -19,9 +19,9 @@ export async function exportPageToPdf({ elementId, personName, cycleLabel }: Exp
 
   // Configuration optimized for mobile screens & standard A4 PDF pages
   const opt = {
-    margin: [6, 6, 6, 6], // [top, left, bottom, right] in mm
+    margin: [6, 6, 6, 6] as [number, number, number, number], // [top, left, bottom, right] in mm
     filename: filename,
-    image: { type: 'jpeg', quality: 0.98 },
+    image: { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: {
       scale: 2, // High resolution crisp text rendering
       useCORS: true,
@@ -32,10 +32,10 @@ export async function exportPageToPdf({ elementId, personName, cycleLabel }: Exp
     jsPDF: {
       unit: 'mm',
       format: 'a4',
-      orientation: 'portrait',
+      orientation: 'portrait' as const,
       compress: true,
     },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const },
   };
 
   try {

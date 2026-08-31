@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -114,6 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
           {persons.map((person) => {
             const isActive = person.id === activePersonId;
+
             return (
               <div
                 key={person.id}
