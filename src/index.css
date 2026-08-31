@@ -11,14 +11,18 @@
 
 /* Hide non-printable or action controls when printing or exporting PDF */
 @media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
   header,
   .no-print,
   button:not(.print-keep) {
     display: none !important;
   }
   body {
-    background-color: white !important;
-    color: black !important;
+    background-color: #f8fafc !important;
     padding: 0 !important;
   }
   .print-page-break {
