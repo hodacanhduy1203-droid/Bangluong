@@ -23,7 +23,8 @@ import {
   Wallet,
   Tag,
   Gift,
-  ChevronDown
+  ChevronDown,
+  Download
 } from 'lucide-react';
 import { FixedExpenseItem, SalaryAdvanceItem, BonusItem, LateArrivalItem } from '../types';
 import { formatVND, getSalaryCycleInfo, generateCycleCalendarDays, getPreviousCycleKey, getCycleUnpaidDebt } from '../utils/formatters';
@@ -31,6 +32,7 @@ import { CycleDaysOffCalendar } from './CycleDaysOffCalendar';
 import { CycleAdvanceSalaryCalendar } from './CycleAdvanceSalaryCalendar';
 import { CycleLateArrivalTracker } from './CycleLateArrivalTracker';
 import { PDFExportButton } from './PDFExportButton';
+import { InstallAppModal } from './InstallAppModal';
 
 const DEFAULT_FIXED_EXPENSES: FixedExpenseItem[] = [];
 
@@ -292,6 +294,9 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
   const [isAddingBonus, setIsAddingBonus] = useState(false);
   const [newBonusName, setNewBonusName] = useState('');
   const [newBonusAmountStr, setNewBonusAmountStr] = useState('');
+
+  // State mở modal cài đặt app
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   // --- PERSISTENCE (Lưu thông tin riêng theo từng chu kỳ & đồng bộ cấu hình gốc) ---
   useEffect(() => {
@@ -627,12 +632,24 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
           </div>
         </div>
 
-        {/* NÚT XUẤT FILE PDF */}
-        <PDFExportButton
-          elementId="main-calculator-content"
-          personName={personName}
-          cycleLabel={cycleInfo.shortLabel}
-        />
+        {/* NÚT TẢI APP & XUẤT FILE PDF */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsInstallModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold transition cursor-pointer shadow-xs"
+            title="Tải & Cài đặt App về điện thoại / máy tính"
+          >
+            <Download className="w-3.5 h-3.5 animate-bounce" />
+            <span>Tải App Về Máy</span>
+          </button>
+
+          <PDFExportButton
+            elementId="main-calculator-content"
+            personName={personName}
+            cycleLabel={cycleInfo.shortLabel}
+          />
+        </div>
       </div>
 
       {/* KHỐI TỔNG QUAN: HẠN MỨC CHI TIÊU MỖI NGÀY THÁNG HIỆN TẠI */}
@@ -1120,6 +1137,12 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* MODAL HƯỚNG DẪN & TẢI APP VỀ MÁY */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
 
     </div>
   );

@@ -8,10 +8,12 @@ import {
   Pencil,
   Trash2,
   X,
-  Check
+  Check,
+  Download
 } from 'lucide-react';
 import { PersonProfile } from '../types';
 import { getSalaryCycleInfo, getCurrentSalaryCycleKey } from '../utils/formatters';
+import { InstallAppModal } from './InstallAppModal';
 
 interface HeaderProps {
   currentMonth: string; // YYYY-MM
@@ -46,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [editingPersonName, setEditingPersonName] = useState('');
 
   const [deletingPerson, setDeletingPerson] = useState<PersonProfile | null>(null);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   // Lấy thông tin chu kỳ 26 tháng này -> 25 tháng sau
   const cycleInfo = getSalaryCycleInfo(currentMonth);
@@ -110,69 +113,82 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-xs">
       <div className="max-w-5xl mx-auto px-3 sm:px-5 py-2 space-y-1.5">
         
-        {/* DÒNG 1: CÁC TAB NGƯỜI (PERSON TABS) + NÚT THÊM (+) */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-          {persons.map((person) => {
-            const isActive = person.id === activePersonId;
+        {/* DÒNG 1: CÁC TAB NGƯỜI (PERSON TABS) + NÚT THÊM (+) + NÚT TẢI APP */}
+        <div className="flex items-center justify-between gap-2 py-1">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 min-w-0 flex-1">
+            {persons.map((person) => {
+              const isActive = person.id === activePersonId;
 
-            return (
-              <div
-                key={person.id}
-                className={`group flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
-                  isActive 
-                    ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/25 font-bold' 
-                    : 'bg-slate-100 hover:bg-slate-200/90 text-slate-700'
-                }`}
-                onClick={() => onSelectPerson(person.id)}
-              >
-                <User className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                <span className="truncate max-w-[120px] sm:max-w-[160px]">{person.name}</span>
+              return (
+                <div
+                  key={person.id}
+                  className={`group flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-semibold transition shrink-0 cursor-pointer select-none ${
+                    isActive 
+                      ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/25 font-bold' 
+                      : 'bg-slate-100 hover:bg-slate-200/90 text-slate-700'
+                  }`}
+                  onClick={() => onSelectPerson(person.id)}
+                >
+                  <User className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <span className="truncate max-w-[120px] sm:max-w-[160px]">{person.name}</span>
 
-                {/* Các nút chỉnh sửa chỉ hiển thị gọn gàng trên tab đang chọn hoặc hover */}
-                {isActive && (
-                  <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-white/30">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartRename(person);
-                      }}
-                      className="p-1 rounded-full hover:bg-white/20 transition cursor-pointer text-white/90 hover:text-white"
-                      title="Đổi tên người này"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    {persons.length > 1 && (
+                  {/* Các nút chỉnh sửa chỉ hiển thị gọn gàng trên tab đang chọn hoặc hover */}
+                  {isActive && (
+                    <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-white/30">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setDeletingPerson(person);
+                          handleStartRename(person);
                         }}
-                        className="p-1 rounded-full hover:bg-rose-500 hover:text-white transition cursor-pointer text-white/80"
-                        title="Xóa tab này"
+                        className="p-1 rounded-full hover:bg-white/20 transition cursor-pointer text-white/90 hover:text-white"
+                        title="Đổi tên người này"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Pencil className="w-3 h-3" />
                       </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      {persons.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingPerson(person);
+                          }}
+                          className="p-1 rounded-full hover:bg-rose-500 hover:text-white transition cursor-pointer text-white/80"
+                          title="Xóa tab này"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
-          {/* NÚT THÊM TAB MỚI (+) */}
+            {/* NÚT THÊM TAB MỚI (+) */}
+            <button
+              type="button"
+              onClick={() => {
+                setNewPersonName('');
+                setIsAddModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100/80 hover:bg-emerald-50 hover:text-emerald-700 border border-dashed border-slate-300 hover:border-emerald-300 text-slate-600 text-xs sm:text-sm font-semibold transition cursor-pointer shrink-0"
+              title="Thêm người mới (Lịch & ngân sách riêng)"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Thêm</span>
+            </button>
+          </div>
+
+          {/* NÚT TẢI APP VỀ MÁY */}
           <button
             type="button"
-            onClick={() => {
-              setNewPersonName('');
-              setIsAddModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100/80 hover:bg-emerald-50 hover:text-emerald-700 border border-dashed border-slate-300 hover:border-emerald-300 text-slate-600 text-xs sm:text-sm font-semibold transition cursor-pointer shrink-0"
-            title="Thêm người mới (Lịch & ngân sách riêng)"
+            onClick={() => setIsInstallModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition cursor-pointer shrink-0 shadow-xs ring-2 ring-emerald-600/20"
+            title="Tải & Cài đặt App về máy điện thoại / máy tính"
           >
-            <Plus className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Thêm</span>
+            <Download className="w-3.5 h-3.5 text-white animate-pulse shrink-0" />
+            <span className="tracking-tight">Tải App</span>
           </button>
         </div>
 
@@ -372,6 +388,12 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL HƯỚNG DẪN & TẢI APP VỀ MÁY */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
 
     </header>
   );
