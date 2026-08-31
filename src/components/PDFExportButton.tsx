@@ -191,7 +191,7 @@ export const PDFExportButton: React.FC<PDFExportButtonProps> = ({
                     Lưu File Báo Cáo PDF
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    Đặt tên cho tệp PDF trước khi tải về
+                    Xuất trang liền mạch 100% nội dung, không bị cắt xén
                   </p>
                 </div>
               </div>

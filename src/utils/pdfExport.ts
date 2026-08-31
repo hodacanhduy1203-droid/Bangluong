@@ -48,71 +48,24 @@ export async function exportPageToPdf({ elementId, personName, cycleLabel, custo
       cacheBust: true,
     });
 
-    const marginMm = 8; // mm
-    const pdfPageWidthMm = 210; // A4 width mm
-    const pdfPageHeightMm = 297; // A4 height mm
-    const printableWidthMm = pdfPageWidthMm - marginMm * 2; // 194 mm
-    const printableHeightMm = pdfPageHeightMm - marginMm * 2; // 281 mm
+    const marginMm = 6; // mm
+    const pdfPageWidthMm = 210; // Standard A4 width in mm
+    const printableWidthMm = pdfPageWidthMm - marginMm * 2; // 198 mm
 
+    // Calculate exact height needed in mm to render all content continuously without page breaks
     const totalImgHeightMm = (canvas.height * printableWidthMm) / canvas.width;
+    const totalPdfHeightMm = Math.max(totalImgHeightMm + marginMm * 2, 100);
 
+    // Create a continuous single-page PDF with exact height
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'a4',
+      format: [pdfPageWidthMm, totalPdfHeightMm],
       compress: true,
     });
 
-    // If fits in single page
-    if (totalImgHeightMm <= printableHeightMm) {
-      const imgData = canvas.toDataURL('image/jpeg', 0.96);
-      pdf.addImage(imgData, 'JPEG', marginMm, marginMm, printableWidthMm, totalImgHeightMm);
-    } else {
-      // Multiple page pagination
-      const pageHeightPx = Math.floor((printableHeightMm * canvas.width) / printableWidthMm);
-      let remainingHeightPx = canvas.height;
-      let currentSrcY = 0;
-      let pageNum = 0;
-
-      while (remainingHeightPx > 0) {
-        if (pageNum > 0) {
-          pdf.addPage();
-        }
-
-        const chunkHeightPx = Math.min(remainingHeightPx, pageHeightPx);
-
-        // Render this slice onto a temporary canvas
-        const chunkCanvas = document.createElement('canvas');
-        chunkCanvas.width = canvas.width;
-        chunkCanvas.height = chunkHeightPx;
-        const ctx = chunkCanvas.getContext('2d');
-
-        if (ctx) {
-          ctx.fillStyle = '#f8fafc';
-          ctx.fillRect(0, 0, chunkCanvas.width, chunkCanvas.height);
-          ctx.drawImage(
-            canvas,
-            0,
-            currentSrcY,
-            canvas.width,
-            chunkHeightPx,
-            0,
-            0,
-            canvas.width,
-            chunkHeightPx
-          );
-
-          const chunkImgData = chunkCanvas.toDataURL('image/jpeg', 0.96);
-          const chunkHeightMm = (chunkHeightPx * printableWidthMm) / canvas.width;
-
-          pdf.addImage(chunkImgData, 'JPEG', marginMm, marginMm, printableWidthMm, chunkHeightMm);
-        }
-
-        currentSrcY += chunkHeightPx;
-        remainingHeightPx -= chunkHeightPx;
-        pageNum++;
-      }
-    }
+    const imgData = canvas.toDataURL('image/jpeg', 0.96);
+    pdf.addImage(imgData, 'JPEG', marginMm, marginMm, printableWidthMm, totalImgHeightMm);
 
     // Save PDF directly to user's device
     pdf.save(filename);
