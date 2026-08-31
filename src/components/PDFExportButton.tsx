@@ -29,11 +29,16 @@ export const PDFExportButton: React.FC<PDFExportButtonProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
 
-  // Default suggested filename based on person & cycle
+  // Format cycle dates to dot format like "26.08-25.09"
+  const getCycleFormatted = () => {
+    return cycleLabel.replace(/\//g, '.').replace(/\s*–\s*|\s*-\s*/g, '-').replace(/\s+/g, '_');
+  };
+
+  // Default suggested filename based on active Tab Name + Working Cycle Dates (e.g. Duy_26.08-25.09)
   const getDefaultFileName = () => {
     const cleanPerson = personName ? personName.trim().replace(/\s+/g, '_') : 'Ca_Nhan';
-    const cleanCycle = cycleLabel.trim().replace(/[\s/]/g, '_');
-    return `Chi_Tieu_${cleanPerson}_${cleanCycle}`;
+    const cycleStr = getCycleFormatted();
+    return `${cleanPerson}_${cycleStr}`;
   };
 
   const [fileName, setFileName] = useState(getDefaultFileName());
@@ -81,11 +86,15 @@ export const PDFExportButton: React.FC<PDFExportButtonProps> = ({
     window.print();
   };
 
+  const cleanPersonForPreset = personName ? personName.trim().replace(/\s+/g, '_') : 'Ca_Nhan';
+  const cleanCycleDot = getCycleFormatted();
+  const cleanCycleUnderscore = cleanCycleDot.replace(/-/g, '_');
+
   const quickNamePresets = [
-    `Chi_Tieu_${personName ? personName.replace(/\s+/g, '_') : 'Ca_Nhan'}_${cycleLabel.replace(/[\s/]/g, '_')}`,
-    `Quyet_Toan_${cycleLabel.replace(/[\s/]/g, '_')}`,
-    `Han_Muc_Chi_Tieu_1_Ngay`,
-    `Bang_Luong_Va_Chi_Phi_${cycleLabel.replace(/[\s/]/g, '_')}`,
+    `${cleanPersonForPreset}_${cleanCycleDot}`,
+    `${cleanPersonForPreset}_${cleanCycleUnderscore}`,
+    `Chi_Tieu_${cleanPersonForPreset}_${cleanCycleDot}`,
+    `Quyet_Toan_${cleanPersonForPreset}_${cleanCycleDot}`,
   ];
 
   return (

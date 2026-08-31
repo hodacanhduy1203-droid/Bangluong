@@ -577,7 +577,7 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
     <div id="main-calculator-content" className="max-w-4xl mx-auto px-2 sm:px-4 py-3 sm:py-5 space-y-4 sm:space-y-5">
       
       {/* THANH THAO TÁC TRÊN CÙNG: TIÊU ĐỀ & NÚT XUẤT FILE PDF */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs no-print">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
             <Calculator className="w-5 h-5" />
@@ -585,7 +585,7 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
           <div>
             <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
               <span>Bảng Quản Lý Ngân Sách • {personName}</span>
-              <div className="relative inline-block">
+              <div className="relative inline-block no-print">
                 <button
                   type="button"
                   onClick={() => setShowHoursMenu(!showHoursMenu)}
@@ -625,15 +625,22 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
                   </div>
                 )}
               </div>
+              <span className="hidden print:inline-block text-xs font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200">
+                Ca làm: {dailyWorkingHours}h/ngày
+              </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Chu kỳ: {cycleInfo.shortLabel} ({cycleInfo.totalDays} ngày)
-            </p>
+            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium flex-wrap mt-0.5">
+              <span>Ngày tháng làm việc: <strong className="text-slate-800 font-bold">{cycleInfo.shortLabel.replace(/\//g, '.')}</strong> ({cycleInfo.totalDays} ngày)</span>
+              <span>•</span>
+              <span className="text-emerald-700 font-semibold">
+                Ngày xuất: {new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* NÚT TẢI APP & XUẤT FILE PDF */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap no-print">
           <button
             type="button"
             onClick={() => setIsInstallModalOpen(true)}
