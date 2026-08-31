@@ -1,0 +1,6 @@
+{
+  "name": "Tính Chi Tiêu 1 Ngày",
+  "description": "Công cụ tối giản tính toán chính xác hạn mức chi tiêu 1 ngày dựa trên thu nhập, số ngày trong tháng, ngày nghỉ và chi phí thẻ ngân hàng.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
