@@ -383,25 +383,62 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
     return Math.max(0, totalEffectiveIncome - totalFixedExpenses);
   }, [totalEffectiveIncome, totalFixedExpenses]);
 
-  // 3. Tính 1 ngày cho THÁNG 30 NGÀY
-  const dailyBudget30 = useMemo(() => {
-    if (totalSpendingBudget <= 0) return 0;
-    return Math.round(totalSpendingBudget / 30);
-  }, [totalSpendingBudget]);
+  // 3. Tính hạn mức 1 ngày cho từng tháng trong chu kỳ
+  const startMonthDailyBudget = useMemo(() => {
+    if (totalSpendingBudget <= 0 || cycleDaysData.startMonthDaysCount <= 0) return 0;
+    return Math.round(totalSpendingBudget / cycleDaysData.startMonthDaysCount);
+  }, [totalSpendingBudget, cycleDaysData.startMonthDaysCount]);
 
-  // 4. Tính 1 ngày cho THÁNG 31 NGÀY
-  const dailyBudget31 = useMemo(() => {
-    if (totalSpendingBudget <= 0) return 0;
-    return Math.round(totalSpendingBudget / 31);
-  }, [totalSpendingBudget]);
+  const endMonthDailyBudget = useMemo(() => {
+    if (totalSpendingBudget <= 0 || cycleDaysData.endMonthDaysCount <= 0) return 0;
+    return Math.round(totalSpendingBudget / cycleDaysData.endMonthDaysCount);
+  }, [totalSpendingBudget, cycleDaysData.endMonthDaysCount]);
 
-  // 5. Tính 1 ngày cho số ngày thực tế của tháng hiện tại
-  const currentDailyBudget = useMemo(() => {
-    if (totalSpendingBudget <= 0) return 0;
-    return Math.round(totalSpendingBudget / daysInMonthChoice);
-  }, [totalSpendingBudget, daysInMonthChoice]);
+  // Xác định ngày hôm nay thuộc tháng nào trong chu kỳ
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayDayInfo = useMemo(() => {
+    return cycleDaysData.days.find(d => d.dateStr === todayStr);
+  }, [cycleDaysData, todayStr]);
 
-  // Đơn giá 1 ngày chính xác theo từng tháng trong chu kỳ
+  const isTodayInStartMonth = todayDayInfo ? todayDayInfo.phase === 'start_month' : false;
+  const isTodayInEndMonth = todayDayInfo ? todayDayInfo.phase === 'end_month' : true;
+
+  // Lựa chọn xem hạn mức của tháng nào (mặc định theo ngày hôm nay)
+  const [selectedViewMonth, setSelectedViewMonth] = useState<'auto' | 'start' | 'end'>('auto');
+
+  const activeViewMonth = useMemo(() => {
+    if (selectedViewMonth === 'start') return 'start';
+    if (selectedViewMonth === 'end') return 'end';
+    return isTodayInStartMonth ? 'start' : 'end';
+  }, [selectedViewMonth, isTodayInStartMonth]);
+
+  const activeMonthInfo = useMemo(() => {
+    if (activeViewMonth === 'start') {
+      return {
+        monthNumber: cycleInfo.startMonth,
+        year: cycleInfo.startYear,
+        name: `Tháng ${cycleInfo.startMonth}/${cycleInfo.startYear}`,
+        daysCount: cycleDaysData.startMonthDaysCount,
+        dailyBudget: startMonthDailyBudget,
+        phase: 'start' as const,
+        isCurrentToday: isTodayInStartMonth,
+      };
+    }
+    return {
+      monthNumber: cycleInfo.endMonth,
+      year: cycleInfo.endYear,
+      name: `Tháng ${cycleInfo.endMonth}/${cycleInfo.endYear}`,
+      daysCount: cycleDaysData.endMonthDaysCount,
+      dailyBudget: endMonthDailyBudget,
+      phase: 'end' as const,
+      isCurrentToday: isTodayInEndMonth,
+    };
+  }, [activeViewMonth, cycleInfo, cycleDaysData, startMonthDailyBudget, endMonthDailyBudget, isTodayInStartMonth, isTodayInEndMonth]);
+
+  // Hạn mức mỗi ngày đang áp dụng
+  const currentDailyBudget = activeMonthInfo.dailyBudget;
+
+  // Đơn giá 1 ngày chính xác theo từng tháng trong chu kỳ (dùng tính trừ ngày nghỉ)
   const startMonthRate = useMemo(() => {
     if (monthlyIncome <= 0 || cycleDaysData.startMonthDaysCount <= 0) return 0;
     return Math.round(monthlyIncome / cycleDaysData.startMonthDaysCount);
@@ -489,7 +526,6 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
   }, [totalDeductionsAndSpent, totalEffectiveIncome]);
 
   // 9. Theo dõi chi tiêu hôm nay
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const todayLogs = useMemo(() => {
     return dailyLogs.filter(l => l.date === todayStr);
   }, [dailyLogs, todayStr]);
@@ -638,57 +674,93 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
             </div>
           </div>
         </div>
-
-        {/* NÚT TẢI APP & XUẤT FILE PDF */}
-        <div className="flex items-center gap-2 flex-wrap no-print">
-          <button
-            type="button"
-            onClick={() => setIsInstallModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold transition cursor-pointer shadow-xs"
-            title="Tải & Cài đặt App về điện thoại / máy tính"
-          >
-            <Download className="w-3.5 h-3.5 animate-bounce" />
-            <span>Tải App Về Máy</span>
-          </button>
-
-          <PDFExportButton
-            elementId="main-calculator-content"
-            personName={personName}
-            cycleLabel={cycleInfo.shortLabel}
-          />
-        </div>
       </div>
 
-      {/* KHỐI TỔNG QUAN: HẠN MỨC CHI TIÊU MỖI NGÀY THÁNG HIỆN TẠI */}
+      {/* KHỐI TỔNG QUAN: HẠN MỨC CHI TIÊU MỖI NGÀY DỰA THEO THÁNG (THÁNG 9: 30 NGÀY, THÁNG 8: 31 NGÀY) */}
       {monthlyIncome > 0 && (
-        <div id="daily-budget-hero-card" className="bg-emerald-800 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-emerald-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-emerald-200 uppercase tracking-wider block">
-                Hạn Mức Chi Tiêu Mỗi Ngày • Tháng {cycleInfo.startMonth}/{cycleInfo.startYear}
-              </span>
-              <span className="text-[10px] font-extrabold text-emerald-950 bg-emerald-200 px-2 py-0.5 rounded-full">
-                {autoDaysInMonth} ngày
-              </span>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black tracking-tight mt-1 text-white">
-              {formatVND(currentDailyBudget)}
-              <span className="text-xs font-semibold text-emerald-200 ml-1.5">/ ngày</span>
-            </div>
-            <p className="text-[11px] text-emerald-100/90 mt-1">
-              Dựa trên ngân sách sinh hoạt {formatVND(totalSpendingBudget)} chia cho {autoDaysInMonth} ngày chu kỳ ({cycleInfo.shortLabel})
-            </p>
-          </div>
+        <div id="daily-budget-hero-card" className="bg-emerald-800 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-emerald-700 space-y-3.5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-emerald-200 uppercase tracking-wider block">
+                  Hạn Mức Chi Tiêu Mỗi Ngày • {activeMonthInfo.name}
+                </span>
+                <span className="text-[10px] font-extrabold text-emerald-950 bg-emerald-200 px-2.5 py-0.5 rounded-full shadow-2xs">
+                  {activeMonthInfo.daysCount} ngày
+                </span>
+                {activeMonthInfo.isCurrentToday && (
+                  <span className="text-[10px] font-extrabold text-white bg-emerald-700/90 border border-emerald-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                    Hôm nay đang áp dụng
+                  </span>
+                )}
+              </div>
 
-          <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/15 flex items-center justify-between sm:justify-start gap-4 shrink-0">
-            <div>
-              <span className="text-[11px] text-emerald-200 block font-medium">Tháng {cycleInfo.startMonth}/{cycleInfo.startYear}</span>
-              <span className="text-sm font-extrabold text-white">{autoDaysInMonth} ngày</span>
+              <div className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white">
+                {formatVND(activeMonthInfo.dailyBudget)}
+                <span className="text-xs sm:text-sm font-semibold text-emerald-200 ml-1.5">/ ngày</span>
+              </div>
+
+              <p className="text-xs text-emerald-100/90 leading-relaxed">
+                Dựa trên ngân sách sinh hoạt <strong>{formatVND(totalSpendingBudget)}</strong> chia cho <strong>{activeMonthInfo.daysCount} ngày</strong> của <strong>{activeMonthInfo.name}</strong>
+              </p>
             </div>
-            <div className="w-px h-7 bg-white/20"></div>
-            <div>
-              <span className="text-[11px] text-emerald-200 block font-medium">Hạn mức tháng này</span>
-              <span className="text-sm font-extrabold text-emerald-200">{formatVND(currentDailyBudget)}/ngày</span>
+
+            {/* Bảng so sánh 2 giai đoạn tháng của chu kỳ - Hiển thị nằm ngang */}
+            <div className="grid grid-cols-2 gap-2 w-full md:w-auto shrink-0">
+              {/* Nút Tháng Bắt Đầu (VD: Tháng 8 - 31 ngày) */}
+              <button
+                type="button"
+                onClick={() => setSelectedViewMonth(selectedViewMonth === 'start' ? 'auto' : 'start')}
+                className={`p-2.5 sm:p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-0.5 sm:gap-1 min-w-0 ${
+                  activeViewMonth === 'start'
+                    ? 'bg-white text-emerald-950 border-white shadow-md'
+                    : 'bg-white/10 hover:bg-white/15 text-white border-white/15'
+                }`}
+                title={`Bấm để xem hạn mức Tháng ${cycleInfo.startMonth} (${cycleDaysData.startMonthDaysCount} ngày)`}
+              >
+                <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold">
+                  <span className={activeViewMonth === 'start' ? 'text-emerald-900' : 'text-emerald-200'}>
+                    Tháng {cycleInfo.startMonth} ({cycleDaysData.startMonthDaysCount} ngày)
+                  </span>
+                  {isTodayInStartMonth && (
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  )}
+                </div>
+                <div className="text-xs sm:text-base font-black truncate">
+                  {formatVND(startMonthDailyBudget)}<span className="text-[9px] sm:text-[10px] font-normal opacity-80">/ngày</span>
+                </div>
+                <span className={`text-[9px] sm:text-[10px] truncate ${activeViewMonth === 'start' ? 'text-emerald-700 font-medium' : 'text-emerald-300/80'}`}>
+                  26/{String(cycleInfo.startMonth).padStart(2, '0')} → {cycleDaysData.startMonthDaysCount}/{String(cycleInfo.startMonth).padStart(2, '0')}
+                </span>
+              </button>
+
+              {/* Nút Tháng Kết Thúc (VD: Tháng 9 - 30 ngày) */}
+              <button
+                type="button"
+                onClick={() => setSelectedViewMonth(selectedViewMonth === 'end' ? 'auto' : 'end')}
+                className={`p-2.5 sm:p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-0.5 sm:gap-1 min-w-0 ${
+                  activeViewMonth === 'end'
+                    ? 'bg-white text-emerald-950 border-white shadow-md'
+                    : 'bg-white/10 hover:bg-white/15 text-white border-white/15'
+                }`}
+                title={`Bấm để xem hạn mức Tháng ${cycleInfo.endMonth} (${cycleDaysData.endMonthDaysCount} ngày)`}
+              >
+                <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold">
+                  <span className={activeViewMonth === 'end' ? 'text-emerald-900' : 'text-emerald-200'}>
+                    Tháng {cycleInfo.endMonth} ({cycleDaysData.endMonthDaysCount} ngày)
+                  </span>
+                  {isTodayInEndMonth && (
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                  )}
+                </div>
+                <div className="text-xs sm:text-base font-black truncate">
+                  {formatVND(endMonthDailyBudget)}<span className="text-[9px] sm:text-[10px] font-normal opacity-80">/ngày</span>
+                </div>
+                <span className={`text-[9px] sm:text-[10px] truncate ${activeViewMonth === 'end' ? 'text-emerald-700 font-medium' : 'text-emerald-300/80'}`}>
+                  01/{String(cycleInfo.endMonth).padStart(2, '0')} → 25/{String(cycleInfo.endMonth).padStart(2, '0')} (Hiện tại)
+                </span>
+              </button>
             </div>
           </div>
         </div>
