@@ -1,7 +1,7 @@
 {
-  "name": "Tính Chi Tiêu 1 Ngày",
-  "short_name": "Tính Chi Tiêu",
-  "description": "Công cụ tính toán chính xác hạn mức chi tiêu 1 ngày, theo dõi ngày nghỉ, ứng lương và nợ tích lũy",
+  "name": "Bảng Lương",
+  "short_name": "Bảng Lương",
+  "description": "Bảng tính lương, quản lý hạn mức chi tiêu mỗi ngày, theo dõi lịch nghỉ, ứng lương và quyết toán chu kỳ.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

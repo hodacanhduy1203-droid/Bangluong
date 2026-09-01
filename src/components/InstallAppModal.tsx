@@ -251,7 +251,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                         3
                       </span>
                       <p className="leading-relaxed">
-                        Bấm <strong>"Thêm"</strong> hoặc <strong>"Cài đặt"</strong> để hoàn tất. Biểu tượng ứng dụng <strong>Tính Chi Tiêu 1 Ngày</strong> sẽ xuất hiện trên màn hình điện thoại của bạn!
+                        Bấm <strong>"Thêm"</strong> hoặc <strong>"Cài đặt"</strong> để hoàn tất. Biểu tượng ứng dụng <strong>Bảng Lương</strong> sẽ xuất hiện trên màn hình điện thoại của bạn!
                       </p>
                     </div>
                   </div>
@@ -301,7 +301,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                         2
                       </span>
                       <p className="leading-relaxed">
-                        Nhấn vào biểu tượng <strong>Cài đặt ( <Download className="w-3.5 h-3.5 inline text-slate-800 -mt-0.5" /> / màn hình máy tính)</strong> hoặc vào menu 3 chấm ➔ chọn <strong>"Cài đặt Tính Chi Tiêu..."</strong>.
+                        Nhấn vào biểu tượng <strong>Cài đặt ( <Download className="w-3.5 h-3.5 inline text-slate-800 -mt-0.5" /> / màn hình máy tính)</strong> hoặc vào menu 3 chấm ➔ chọn <strong>"Cài đặt Bảng Lương..."</strong>.
                       </p>
                     </div>
                     <div className="flex items-start gap-2.5">

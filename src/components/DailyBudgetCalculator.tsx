@@ -584,7 +584,7 @@ export const DailyBudgetCalculator: React.FC<DailyBudgetCalculatorProps> = ({
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
-              <span>Bảng Quản Lý Ngân Sách • {personName}</span>
+              <span>{personName}</span>
               <div className="relative inline-block no-print">
                 <button
                   type="button"
