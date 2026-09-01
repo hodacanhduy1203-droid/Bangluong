@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Clock, Trash2, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Clock, Trash2, ChevronDown, ChevronUp, Check, X, Sparkles } from 'lucide-react';
 import { LateArrivalItem } from '../types';
 import { formatVND, getSalaryCycleInfo, generateCycleCalendarDays, CycleDay } from '../utils/formatters';
 
@@ -72,21 +72,15 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
     return cycleData.days.filter(d => d.phase === 'end_month');
   }, [cycleData]);
 
-  // State ngày đang chọn trên lịch
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const initialSelectedDate = useMemo(() => {
-    const exists = dayMap.has(todayStr);
-    return exists ? todayStr : (cycleData.days[0]?.dateStr || todayStr);
-  }, [dayMap, todayStr, cycleData]);
-
-  const [selectedDate, setSelectedDate] = useState<string>(initialSelectedDate);
+  // State popup modal khi bấm vào bất kỳ ngày nào trên lịch
+  const [selectedDayModal, setSelectedDayModal] = useState<CycleDay | null>(null);
   const [hoursInputStr, setHoursInputStr] = useState<string>('1');
   const [noteInput, setNoteInput] = useState<string>('');
 
-  // Khi bấm vào 1 ô ngày trên lịch
-  const handleSelectDayOnCalendar = (dateStr: string) => {
-    setSelectedDate(dateStr);
-    const existing = lateMapByDate.get(dateStr);
+  // Mở popup nhập giờ trễ ngay khi bấm vào 1 ô ngày
+  const handleOpenDayModal = (day: CycleDay) => {
+    setSelectedDayModal(day);
+    const existing = lateMapByDate.get(day.dateStr);
     if (existing) {
       setHoursInputStr(existing.hours.toString());
       setNoteInput(existing.note || '');
@@ -157,17 +151,20 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
     };
   }, [calculatedItems]);
 
-  // Thêm hoặc cập nhật khoản đi trễ cho ngày đang chọn
+  // Thêm hoặc cập nhật khoản đi trễ cho ngày đang chọn trong modal
   const handleSaveLateItem = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedDayModal) return;
+
     const hours = parseFloat(hoursInputStr);
     if (isNaN(hours) || hours <= 0) {
-      handleDeleteLateForDate(selectedDate);
+      handleDeleteLateForDate(selectedDayModal.dateStr);
+      setSelectedDayModal(null);
       return;
     }
 
     const cleanHours = Math.round(hours * 100) / 100;
-    const existingIndex = lateItems.findIndex(i => i.date === selectedDate);
+    const existingIndex = lateItems.findIndex(i => i.date === selectedDayModal.dateStr);
 
     if (existingIndex >= 0) {
       const updated = [...lateItems];
@@ -180,58 +177,32 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
     } else {
       const newItem: LateArrivalItem = {
         id: `late_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        date: selectedDate,
+        date: selectedDayModal.dateStr,
         hours: cleanHours,
         note: noteInput.trim() || undefined,
         createdAt: Date.now(),
       };
       onChangeLateItems([...lateItems, newItem]);
     }
-  };
 
-  // Quick preset giờ cho ngày đang chọn
-  const handleQuickSetHours = (hours: number) => {
-    setHoursInputStr(hours.toString());
-    const existingIndex = lateItems.findIndex(i => i.date === selectedDate);
-    if (existingIndex >= 0) {
-      const updated = [...lateItems];
-      updated[existingIndex] = {
-        ...updated[existingIndex],
-        hours,
-      };
-      onChangeLateItems(updated);
-    } else {
-      const newItem: LateArrivalItem = {
-        id: `late_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        date: selectedDate,
-        hours,
-        note: noteInput.trim() || undefined,
-        createdAt: Date.now(),
-      };
-      onChangeLateItems([...lateItems, newItem]);
-    }
+    setSelectedDayModal(null);
   };
 
   // Xóa khoản trễ của một ngày cụ thể
   const handleDeleteLateForDate = (dateStr: string) => {
     onChangeLateItems(lateItems.filter(item => item.date !== dateStr));
-    if (selectedDate === dateStr) {
-      setHoursInputStr('1');
-      setNoteInput('');
-    }
   };
 
-  // Preset lựa chọn giờ nhanh
-  const quickHours = [
-    { label: '30p (0.5h)', value: 0.5 },
-    { label: '1 giờ', value: 1 },
-    { label: '1.5 giờ', value: 1.5 },
-    { label: '2 giờ', value: 2 },
-    { label: '3 giờ', value: 3 },
-  ];
+  const modalDayHourlyRate = selectedDayModal
+    ? (selectedDayModal.phase === 'start_month' ? startMonthHourlyRate : endMonthHourlyRate)
+    : 0;
 
-  const currentSelectedDayInfo = dayMap.get(selectedDate);
-  const currentSelectedLateItem = lateMapByDate.get(selectedDate);
+  const modalEstimatedDeduction = useMemo(() => {
+    const h = parseFloat(hoursInputStr) || 0;
+    return Math.round(h * modalDayHourlyRate);
+  }, [hoursInputStr, modalDayHourlyRate]);
+
+  const modalExistingItem = selectedDayModal ? lateMapByDate.get(selectedDayModal.dateStr) : undefined;
 
   return (
     <div id="cycle-late-calendar-section" className="bg-amber-50 text-slate-900 rounded-2xl p-4 sm:p-5 border border-amber-200 shadow-sm transition-all space-y-3">
@@ -278,7 +249,7 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
 
           {calculatedItems.length === 0 ? (
             <div className="text-slate-400 text-xs italic py-0.5">
-              Chưa ghi nhận đi làm trễ ngày nào trong chu kỳ này
+              Chưa ghi nhận đi làm trễ ngày nào trong chu kỳ này (bấm để mở lịch)
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-1.5">
@@ -289,13 +260,19 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
                   : item.date;
 
                 return (
-                  <span
+                  <button
                     key={item.id || item.date}
-                    className="inline-flex items-center gap-1.5 bg-amber-100/90 text-amber-950 border border-amber-300/80 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (day) handleOpenDayModal(day);
+                    }}
+                    className="inline-flex items-center gap-1.5 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
+                    title="Bấm để chỉnh sửa giờ trễ"
                   >
                     <span>{dayStr} <span className="text-[11px] font-semibold text-amber-900">({item.hours}h)</span></span>
-                    <span className="text-[10px] text-slate-600 font-normal">(-{formatVND(item.deduction)})</span>
-                  </span>
+                    <span className="text-[10px] text-slate-700 font-bold">(-{formatVND(item.deduction)})</span>
+                  </button>
                 );
               })}
             </div>
@@ -345,6 +322,11 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
             </div>
           </div>
 
+          <div className="text-[11px] text-amber-900/90 font-semibold bg-amber-100/60 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+            <span>Chạm trực tiếp vào bất kỳ ngày nào bên dưới để mở bảng ghi số giờ đi trễ:</span>
+          </div>
+
           {/* GIAI ĐOẠN 1: LỊCH TỪ 26 ĐẾN HẾT THÁNG ĐẦU */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
@@ -358,22 +340,19 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
             <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
               {startMonthDays.map((day) => {
                 const lateItem = lateMapByDate.get(day.dateStr);
-                const isSelected = selectedDate === day.dateStr;
                 const deduction = lateItem ? Math.round(lateItem.hours * startMonthHourlyRate) : 0;
 
                 return (
                   <button
                     key={day.dateStr}
                     type="button"
-                    onClick={() => handleSelectDayOnCalendar(day.dateStr)}
-                    className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all relative cursor-pointer flex flex-col justify-between min-h-[58px] sm:min-h-[62px] ${
+                    onClick={() => handleOpenDayModal(day)}
+                    className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all relative cursor-pointer flex flex-col justify-between min-h-[58px] sm:min-h-[62px] active:scale-95 ${
                       lateItem
-                        ? 'border-2 border-amber-500 bg-amber-500 text-slate-950 shadow-md font-black'
-                        : isSelected
-                        ? 'border-2 border-amber-400 bg-amber-100 text-amber-950 font-bold ring-2 ring-amber-400/50'
+                        ? 'border-2 border-amber-500 bg-amber-500 text-slate-950 shadow-md font-black ring-2 ring-amber-400/40'
                         : day.isToday
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-950 font-bold'
-                        : 'border-slate-200/90 bg-white text-slate-800 hover:bg-amber-50'
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-950 font-bold hover:bg-emerald-100'
+                        : 'border-slate-200/90 bg-white text-slate-800 hover:bg-amber-100/70 hover:border-amber-300'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full leading-none">
@@ -425,22 +404,19 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
             <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
               {endMonthDays.map((day) => {
                 const lateItem = lateMapByDate.get(day.dateStr);
-                const isSelected = selectedDate === day.dateStr;
                 const deduction = lateItem ? Math.round(lateItem.hours * endMonthHourlyRate) : 0;
 
                 return (
                   <button
                     key={day.dateStr}
                     type="button"
-                    onClick={() => handleSelectDayOnCalendar(day.dateStr)}
-                    className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all relative cursor-pointer flex flex-col justify-between min-h-[58px] sm:min-h-[62px] ${
+                    onClick={() => handleOpenDayModal(day)}
+                    className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all relative cursor-pointer flex flex-col justify-between min-h-[58px] sm:min-h-[62px] active:scale-95 ${
                       lateItem
-                        ? 'border-2 border-amber-500 bg-amber-500 text-slate-950 shadow-md font-black'
-                        : isSelected
-                        ? 'border-2 border-amber-400 bg-amber-100 text-amber-950 font-bold ring-2 ring-amber-400/50'
+                        ? 'border-2 border-amber-500 bg-amber-500 text-slate-950 shadow-md font-black ring-2 ring-amber-400/40'
                         : day.isToday
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-950 font-bold'
-                        : 'border-slate-200/90 bg-white text-slate-800 hover:bg-amber-50'
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-950 font-bold hover:bg-emerald-100'
+                        : 'border-slate-200/90 bg-white text-slate-800 hover:bg-amber-100/70 hover:border-amber-300'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full leading-none">
@@ -479,76 +455,6 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
             </div>
           </div>
 
-          {/* BẢNG ĐIỀU CHỈNH GHI NHẬN CHO NGÀY ĐANG CHỌN */}
-          <form onSubmit={handleSaveLateItem} className="bg-white p-3.5 sm:p-4 rounded-2xl border border-amber-200/90 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-amber-600" />
-                <span>
-                  Đang chọn ngày:{' '}
-                  <strong className="text-slate-900 underline">
-                    {currentSelectedDayInfo ? `${currentSelectedDayInfo.dayOfWeekShort}, ${String(currentSelectedDayInfo.dayNumber).padStart(2, '0')}/${String(currentSelectedDayInfo.month).padStart(2, '0')}/${currentSelectedDayInfo.year}` : selectedDate}
-                  </strong>
-                </span>
-              </div>
-
-              {currentSelectedLateItem && (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteLateForDate(selectedDate)}
-                  className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Xóa khoản trễ ngày này</span>
-                </button>
-              )}
-            </div>
-
-            {/* Số giờ trễ */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Số giờ đi làm trễ (tiếng)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                min="0.1"
-                max={dailyWorkingHours}
-                value={hoursInputStr}
-                onChange={(e) => setHoursInputStr(e.target.value)}
-                placeholder="VD: 1 hoặc 1.5"
-                className="w-full bg-amber-50/50 border border-amber-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            {/* Số tiền cấn trừ tính trước */}
-            {(() => {
-              const h = parseFloat(hoursInputStr) || 0;
-              const isStartMonth = currentSelectedDayInfo ? currentSelectedDayInfo.phase === 'start_month' : true;
-              const rate = isStartMonth ? startMonthHourlyRate : endMonthHourlyRate;
-              const estDeduction = Math.round(h * rate);
-
-              return (
-                <div className="flex items-center justify-between pt-1 text-xs">
-                  <span className="text-slate-600">
-                    Trừ dự kiến ngày {currentSelectedDayInfo ? `${currentSelectedDayInfo.dayNumber}/${currentSelectedDayInfo.month}` : ''} ({h}h × {formatVND(rate)}/h):
-                  </span>
-                  <span className="font-black text-amber-900">
-                    -{formatVND(estDeduction)}
-                  </span>
-                </div>
-              );
-            })()}
-
-            <button
-              type="submit"
-              className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
-            >
-              <Check className="w-4 h-4" />
-              <span>{currentSelectedLateItem ? 'Cập Nhật Giờ Trễ Ngày Này' : 'Lưu Đi Làm Trễ Ngày Này'}</span>
-            </button>
-          </form>
-
           {/* TỔNG KẾT KHẤU TRỪ ĐI TRỄ CHÍNH XÁC */}
           <div className="p-3 rounded-xl bg-amber-100/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div>
@@ -572,6 +478,108 @@ export const CycleLateArrivalTracker: React.FC<CycleLateArrivalTrackerProps> = (
                 -{formatVND(totalLateDeduction)}
               </span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP MODAL GHI GIỜ TRỄ KHI BẤM VÀO BẤT KỲ NGÀY NÀO */}
+      {selectedDayModal && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150"
+          onClick={() => setSelectedDayModal(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-sm w-full p-4 sm:p-5 shadow-2xl border border-amber-200 space-y-4 animate-in zoom-in-95 duration-150 text-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Modal */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-xs">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm sm:text-base font-black text-slate-900">
+                    Ghi Nhận Đi Trễ
+                  </h4>
+                  <p className="text-xs text-amber-900 font-bold">
+                    {selectedDayModal.dayOfWeekShort}, {String(selectedDayModal.dayNumber).padStart(2, '0')}/{String(selectedDayModal.month).padStart(2, '0')}/{selectedDayModal.year}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDayModal(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Thông tin đơn giá giờ của ngày được chọn */}
+            <div className="bg-amber-50 rounded-xl p-2.5 border border-amber-200/80 flex items-center justify-between text-xs">
+              <span className="text-slate-600 font-medium">Đơn giá giờ làm ngày này:</span>
+              <span className="font-black text-slate-900">{formatVND(modalDayHourlyRate)}/giờ</span>
+            </div>
+
+            {/* Form nhập giờ trễ */}
+            <form onSubmit={handleSaveLateItem} className="space-y-3.5">
+              {/* Ô nhập số giờ trễ */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  Số Giờ Đi Làm Trễ (tiếng)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    max={dailyWorkingHours}
+                    autoFocus
+                    placeholder="VD: 1 hoặc 1.5"
+                    value={hoursInputStr}
+                    onChange={(e) => setHoursInputStr(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50/30 text-lg font-black text-slate-900 focus:ring-3 focus:ring-amber-500/20 focus:border-amber-600 transition"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-800">
+                    tiếng (h)
+                  </span>
+                </div>
+              </div>
+
+              {/* Số tiền khấu trừ tính trước */}
+              <div className="p-2.5 rounded-xl bg-amber-100/90 border border-amber-300 flex items-center justify-between text-xs">
+                <span className="text-amber-950 font-bold">Khấu trừ ngày này:</span>
+                <span className="text-sm font-black text-amber-950">
+                  -{formatVND(modalEstimatedDeduction)}
+                </span>
+              </div>
+
+              {/* Nút hành động */}
+              <div className="pt-1 flex items-center gap-2">
+                {modalExistingItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeleteLateForDate(selectedDayModal.dateStr);
+                      setSelectedDayModal(null);
+                    }}
+                    className="py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition cursor-pointer flex items-center gap-1 shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa Trễ</span>
+                  </button>
+                )}
+
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs sm:text-sm font-black shadow-sm transition cursor-pointer flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{modalExistingItem ? 'Cập Nhật Giờ Trễ' : 'Lưu Giờ Đi Làm Trễ'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
